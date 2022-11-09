@@ -31,19 +31,23 @@ Eigen::VectorXd ompl::geometric::CVFRRT::getNewDirection(const base::State *qnea
 
     // Set vrand to be the normalized vector from qnear to qrand
     Eigen::VectorXd vrand(vfdim_);
+    Eigen::VectorXd vnear(vfdim_);
     for (unsigned int i = 0; i < vfdim_; i++)
+    {
         vrand[i] = *si_->getStateSpace()->getValueAddressAtIndex(qrand, i) -
                    *si_->getStateSpace()->getValueAddressAtIndex(qnear, i);
+        vnear[i] = *si_->getStateSpace()->getValueAddressAtIndex(qnear, i);
+    }
     vrand /= si_->distance(qnear, qrand);
 
     // Get the vector at qnear, and normalize
     Eigen::VectorXd vfield = vf_(qnear);
-    const double lambdaScale = vfield.norm();
-    // In the case where there is no vector field present, vfield.norm() == 0,
-    // return the direction of the random state.
-    if (lambdaScale < std::numeric_limits<float>::epsilon())
-        return vrand;
-    vfield /= lambdaScale;
+    // const double lambdaScale = vfield.norm();
+    // // In the case where there is no vector field present, vfield.norm() == 0,
+    // // return the direction of the random state.
+    // if (lambdaScale < std::numeric_limits<float>::epsilon())
+    //     return vrand;
+    // vfield /= lambdaScale;
 
     // get vrand and vf weights
     updateGain();
@@ -52,14 +56,15 @@ Eigen::VectorXd ompl::geometric::CVFRRT::getNewDirection(const base::State *qnea
 
     if (alpha > 0.999)
     {
-        alpha = 0.0;
-        beta = 1.0;
+        alpha = 1.0;
+        beta = 0.0;
     }
+    OMPL_INFORM("step: %d", step_);
     OMPL_INFORM("alpha: %f", alpha);
     OMPL_INFORM("beta: %f", beta);
 
     // calculate vnew
-    Eigen::VectorXd vnew = beta * vfield + alpha * vrand;
+    Eigen::VectorXd vnew = vfield + vrand;
 
     OMPL_INFORM("VRAND");
     for (std::size_t i = 0; i < 7; i++)
@@ -67,6 +72,14 @@ Eigen::VectorXd ompl::geometric::CVFRRT::getNewDirection(const base::State *qnea
         std::cout << vrand[i] << ", ";
     }
     std::cout << std::endl;
+
+    OMPL_INFORM("VNEAR");
+    for (std::size_t i = 0; i < 7; i++)
+    {
+        std::cout << vnear[i] << ", ";
+    }
+    std::cout << std::endl;
+
     OMPL_INFORM("VFIELD");
     for (std::size_t i = 0; i < 7; i++)
     {
@@ -79,6 +92,7 @@ Eigen::VectorXd ompl::geometric::CVFRRT::getNewDirection(const base::State *qnea
     {
         std::cout << vnew[i] << ", ";
     }
+    std::cout << std::endl;
 
     return vnew;
 }
@@ -103,6 +117,7 @@ ompl::geometric::CVFRRT::Motion *ompl::geometric::CVFRRT::extendTree(Motion *m, 
         *space->getValueAddressAtIndex(newState, i) += d * v[i];
     if (!v.hasNaN() && si_->checkMotion(m->state, newState))
     {
+        OMPL_INFORM("Valid motion.");
         auto *motion = new Motion();
         motion->state = newState;
         motion->parent = m;
@@ -111,6 +126,7 @@ ompl::geometric::CVFRRT::Motion *ompl::geometric::CVFRRT::extendTree(Motion *m, 
     }
     else
     {
+        OMPL_INFORM("Motion invalid.");
         si_->freeState(newState);
         return nullptr;
     }
