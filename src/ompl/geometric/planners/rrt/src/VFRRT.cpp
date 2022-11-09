@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2015, Caleb Voss and Wilson Beebe
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Willow Garage nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2015, Caleb Voss and Wilson Beebe
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Authors: Caleb Voss, Wilson Beebe */
 
@@ -45,16 +45,12 @@ namespace ompl
     {
         /// Number of sampler to determine mean vector field norm in \ref gVFRRT
         static const unsigned int VFRRT_MEAN_NORM_SAMPLES = 1000;
-    }
-}
+    }  // namespace magic
+}  // namespace ompl
 
 ompl::geometric::VFRRT::VFRRT(const base::SpaceInformationPtr &si, VectorField vf, double exploration,
                               double initial_lambda, unsigned int update_freq)
-  : RRT(si)
-  , vf_(std::move(vf))
-  , explorationSetting_(exploration)
-  , lambda_(initial_lambda)
-  , nth_step_(update_freq)
+  : RRT(si), vf_(std::move(vf)), explorationSetting_(exploration), lambda_(initial_lambda), nth_step_(update_freq)
 {
     setName("VFRRT");
     maxDistance_ = si->getStateValidityCheckingResolution();
@@ -92,6 +88,7 @@ double ompl::geometric::VFRRT::determineMeanNorm()
 
 Eigen::VectorXd ompl::geometric::VFRRT::getNewDirection(const base::State *qnear, const base::State *qrand)
 {
+    OMPL_INFORM("========== getNewDirection");
     // Set vrand to be the normalized vector from qnear to qrand
     Eigen::VectorXd vrand(vfdim_);
     for (unsigned int i = 0; i < vfdim_; i++)
@@ -101,14 +98,20 @@ Eigen::VectorXd ompl::geometric::VFRRT::getNewDirection(const base::State *qnear
 
     // Get the vector at qnear, and normalize
     Eigen::VectorXd vfield = vf_(qnear);
+
     const double lambdaScale = vfield.norm();
+    OMPL_INFORM("lambdaScale: %f", lambdaScale);
+
     // In the case where there is no vector field present, vfield.norm() == 0,
     // return the direction of the random state.
     if (lambdaScale < std::numeric_limits<float>::epsilon())
         return vrand;
     vfield /= lambdaScale;
+
     // Sample a weight from the distribution
     const double omega = biasedSampling(vrand, vfield, lambdaScale);
+    OMPL_INFORM("omega: %f", omega);
+
     // Determine updated direction
     return computeAlphaBeta(omega, vrand, vfield);
 }
@@ -116,11 +119,20 @@ Eigen::VectorXd ompl::geometric::VFRRT::getNewDirection(const base::State *qnear
 double ompl::geometric::VFRRT::biasedSampling(const Eigen::VectorXd &vrand, const Eigen::VectorXd &vfield,
                                               double lambdaScale)
 {
+    OMPL_INFORM("========== biasedSampling");
     double sigma = .25 * (vrand - vfield).squaredNorm();
+    OMPL_INFORM("sigma: %f", sigma);
     updateGain();
+    OMPL_INFORM("lambdaScale: %f", lambdaScale);
+    OMPL_INFORM("meanNorm_: %f", meanNorm_);
+    OMPL_INFORM("lambda_: %f", lambda_);
     double scaledLambda = lambda_ * lambdaScale / meanNorm_;
+    OMPL_INFORM("scaledLambda: %f", scaledLambda);
+
     double phi = scaledLambda / (1. - std::exp(-2. * scaledLambda));
+    OMPL_INFORM("phi: %f", phi);
     double z = -std::log(1. - sigma * scaledLambda / phi) / scaledLambda;
+    OMPL_INFORM("z: %f", z);
     return std::sqrt(2. * z);
 }
 
@@ -128,7 +140,14 @@ void ompl::geometric::VFRRT::updateGain()
 {
     if (step_ == nth_step_)
     {
+        OMPL_INFORM("========== updateGain");
+
+        OMPL_INFORM("before lambda_: %f", lambda_);
+        OMPL_INFORM("explorationInefficiency_: %f", explorationInefficiency_);
+        OMPL_INFORM("explorationSetting_: %f", explorationSetting_);
+
         lambda_ = lambda_ * (1 - explorationInefficiency_ + explorationSetting_);
+        OMPL_INFORM("after lambda_: %f", lambda_);
         efficientCount_ = inefficientCount_ = 0;
         explorationInefficiency_ = 0;
         step_ = 0;
@@ -140,26 +159,66 @@ void ompl::geometric::VFRRT::updateGain()
 Eigen::VectorXd ompl::geometric::VFRRT::computeAlphaBeta(double omega, const Eigen::VectorXd &vrand,
                                                          const Eigen::VectorXd &vfield)
 {
+    OMPL_INFORM("========== computeAlphaBeta");
     double w2 = omega * omega;
+    OMPL_INFORM("w2: %f", w2);
+
     double c = vfield.dot(vrand);
+    OMPL_INFORM("c: %f", c);
+
     double cc_1 = c * c - 1.;
+    OMPL_INFORM("cc_1: %f", cc_1);
+
     double root = std::sqrt(cc_1 * w2 * (w2 - 4.));
+    OMPL_INFORM("root: %f", root);
+
     double beta = -root / (2. * cc_1);
+    OMPL_INFORM("beta: %f", beta);
+
     double sign = (beta < 0.) ? -1. : 1.;
+    OMPL_INFORM("sign: %f", sign);
+
     beta *= sign;
+    OMPL_INFORM("beta: %f", beta);
+
     double alpha = (sign * c * root + cc_1 * (2. - w2)) / (2. * cc_1);
+    OMPL_INFORM("alpha: %f", alpha);
+
+    OMPL_INFORM("VRAND");
+    for (std::size_t i = 0; i < 7; i++)
+    {
+        std::cout << vrand[i] << ", ";
+    }
+    std::cout << std::endl;
+    OMPL_INFORM("VFIELD");
+    for (std::size_t i = 0; i < 7; i++)
+    {
+        std::cout << vfield[i] << ", ";
+    }
+    std::cout << std::endl;
+
+    Eigen::VectorXd vnew = alpha * vfield + beta * vrand;
+    OMPL_INFORM("VNEW");
+    for (std::size_t i = 0; i < 7; i++)
+    {
+        std::cout << vnew[i] << ", ";
+    }
+    std::cout << std::endl;
     return alpha * vfield + beta * vrand;
 }
 
 ompl::geometric::VFRRT::Motion *ompl::geometric::VFRRT::extendTree(Motion *m, base::State *rstate,
                                                                    const Eigen::VectorXd &v)
 {
+    OMPL_INFORM("========== extendTree");
     base::State *newState = si_->allocState();
     si_->copyState(newState, m->state);
 
     double d = si_->distance(m->state, rstate);
     if (d > maxDistance_)
         d = maxDistance_;
+
+    OMPL_INFORM("d: %f", d);
 
     const base::StateSpacePtr &space = si_->getStateSpace();
     for (unsigned int i = 0; i < vfdim_; i++)
@@ -183,16 +242,22 @@ ompl::geometric::VFRRT::Motion *ompl::geometric::VFRRT::extendTree(Motion *m, ba
 
 void ompl::geometric::VFRRT::updateExplorationEfficiency(Motion *m)
 {
+    OMPL_INFORM("========== updateExplorationEfficiency");
     Motion *near = nn_->nearest(m);
     if (distanceFunction(m, near) < si_->getStateValidityCheckingResolution())
         inefficientCount_++;
     else
         efficientCount_++;
+    OMPL_INFORM("inefficientCount_: %d ", inefficientCount_);
+    OMPL_INFORM("efficientCount_: %d ", efficientCount_);
+
     explorationInefficiency_ = inefficientCount_ / (double)(efficientCount_ + inefficientCount_);
+    OMPL_INFORM("explorationInefficiency_: %f ", explorationInefficiency_);
 }
 
 ompl::base::PlannerStatus ompl::geometric::VFRRT::solve(const base::PlannerTerminationCondition &ptc)
 {
+    OMPL_INFORM("========== solve");
     checkValidity();
     base::Goal *goal = pdef_->getGoal().get();
     auto *goal_s = dynamic_cast<base::GoalSampleableRegion *>(goal);
@@ -201,6 +266,7 @@ ompl::base::PlannerStatus ompl::geometric::VFRRT::solve(const base::PlannerTermi
         sampler_ = si_->allocStateSampler();
 
     meanNorm_ = determineMeanNorm();
+    OMPL_INFORM("meanNorm_: %f", meanNorm_);
 
     while (const base::State *st = pis_.nextStart())
     {

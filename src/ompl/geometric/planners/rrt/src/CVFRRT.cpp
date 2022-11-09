@@ -27,6 +27,8 @@ void ompl::geometric::CVFRRT::setup()
 
 Eigen::VectorXd ompl::geometric::CVFRRT::getNewDirection(const base::State *qnear, const base::State *qrand)
 {
+    OMPL_INFORM("========== getNewDirection");
+
     // Set vrand to be the normalized vector from qnear to qrand
     Eigen::VectorXd vrand(vfdim_);
     for (unsigned int i = 0; i < vfdim_; i++)
@@ -48,8 +50,36 @@ Eigen::VectorXd ompl::geometric::CVFRRT::getNewDirection(const base::State *qnea
     double alpha = 1.0 - std::exp(lambda_ * step_);
     double beta = 1.0 - alpha;
 
+    if (alpha > 0.999)
+    {
+        alpha = 0.0;
+        beta = 1.0;
+    }
+    OMPL_INFORM("alpha: %f", alpha);
+    OMPL_INFORM("beta: %f", beta);
+
     // calculate vnew
     Eigen::VectorXd vnew = beta * vfield + alpha * vrand;
+
+    OMPL_INFORM("VRAND");
+    for (std::size_t i = 0; i < 7; i++)
+    {
+        std::cout << vrand[i] << ", ";
+    }
+    std::cout << std::endl;
+    OMPL_INFORM("VFIELD");
+    for (std::size_t i = 0; i < 7; i++)
+    {
+        std::cout << vfield[i] << ", ";
+    }
+    std::cout << std::endl;
+
+    OMPL_INFORM("VNEW");
+    for (std::size_t i = 0; i < 7; i++)
+    {
+        std::cout << vnew[i] << ", ";
+    }
+
     return vnew;
 }
 
