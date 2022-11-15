@@ -94,14 +94,13 @@ Eigen::VectorXd ompl::geometric::CVFRRT::getNewDirection(const base::State *qnea
     Eigen::VectorXd vnear(vfdim_);
     for (unsigned int i = 0; i < vfdim_; i++)
     {
-        vrand[i] = *si_->getStateSpace()->getValueAddressAtIndex(qrand, i) -
-                   *si_->getStateSpace()->getValueAddressAtIndex(qnear, i);
+        vrand[i] = *si_->getStateSpace()->getValueAddressAtIndex(qrand, i);
         vnear[i] = *si_->getStateSpace()->getValueAddressAtIndex(qnear, i);
     }
-    vrand /= si_->distance(qnear, qrand);
+    // vrand /= si_->distance(qnear, qrand);
 
     // Get the vector at qnear, and normalize
-    Eigen::VectorXd vfield = vf_(qnear);
+    Eigen::VectorXd vfield = vf_(qrand);
 
     const double lambdaScale = vfield.norm();
     OMPL_INFORM("lambdaScale: %f", lambdaScale);
@@ -120,7 +119,7 @@ Eigen::VectorXd ompl::geometric::CVFRRT::getNewDirection(const base::State *qnea
     // return computeAlphaBeta(omega, vrand, vfield);
 
     Eigen::VectorXd vnew(vfdim_);
-    vnew = vrand + vfield;
+    vnew = vfield + vrand;
 
     OMPL_INFORM("VRAND");
     for (std::size_t i = 0; i < vfdim_; i++)
@@ -153,26 +152,6 @@ Eigen::VectorXd ompl::geometric::CVFRRT::getNewDirection(const base::State *qnea
     return vnew;
 }
 
-double ompl::geometric::CVFRRT::biasedSampling(const Eigen::VectorXd &vrand, const Eigen::VectorXd &vfield,
-                                               double lambdaScale)
-{
-    OMPL_INFORM("========== biasedSampling");
-    double sigma = .25 * (vrand - vfield).squaredNorm();
-    OMPL_INFORM("sigma: %f", sigma);
-    updateGain();
-    OMPL_INFORM("lambdaScale: %f", lambdaScale);
-    OMPL_INFORM("meanNorm_: %f", meanNorm_);
-    OMPL_INFORM("lambda_: %f", lambda_);
-    double scaledLambda = lambda_ * lambdaScale / meanNorm_;
-    OMPL_INFORM("scaledLambda: %f", scaledLambda);
-
-    double phi = scaledLambda / (1. - std::exp(-2. * scaledLambda));
-    OMPL_INFORM("phi: %f", phi);
-    double z = -std::log(1. - sigma * scaledLambda / phi) / scaledLambda;
-    OMPL_INFORM("z: %f", z);
-    return std::sqrt(2. * z);
-}
-
 void ompl::geometric::CVFRRT::updateGain()
 {
     if (step_ == nth_step_)
@@ -193,86 +172,92 @@ void ompl::geometric::CVFRRT::updateGain()
         step_++;
 }
 
-Eigen::VectorXd ompl::geometric::CVFRRT::computeAlphaBeta(double omega, const Eigen::VectorXd &vrand,
-                                                          const Eigen::VectorXd &vfield)
-{
-    OMPL_INFORM("========== computeAlphaBeta");
-    double w2 = omega * omega;
-    OMPL_INFORM("w2: %f", w2);
-
-    double c = vfield.dot(vrand);
-    OMPL_INFORM("c: %f", c);
-
-    double cc_1 = c * c - 1.;
-    OMPL_INFORM("cc_1: %f", cc_1);
-
-    double root = std::sqrt(cc_1 * w2 * (w2 - 4.));
-    OMPL_INFORM("root: %f", root);
-
-    double beta = -root / (2. * cc_1);
-    OMPL_INFORM("beta: %f", beta);
-
-    double sign = (beta < 0.) ? -1. : 1.;
-    OMPL_INFORM("sign: %f", sign);
-
-    beta *= sign;
-    OMPL_INFORM("beta: %f", beta);
-
-    double alpha = (sign * c * root + cc_1 * (2. - w2)) / (2. * cc_1);
-    OMPL_INFORM("alpha: %f", alpha);
-
-    OMPL_INFORM("VRAND");
-    for (std::size_t i = 0; i < 7; i++)
-    {
-        std::cout << vrand[i] << ", ";
-    }
-    std::cout << std::endl;
-    OMPL_INFORM("VFIELD");
-    for (std::size_t i = 0; i < 7; i++)
-    {
-        std::cout << vfield[i] << ", ";
-    }
-    std::cout << std::endl;
-
-    Eigen::VectorXd vnew = alpha * vfield + beta * vrand;
-    OMPL_INFORM("VNEW");
-    for (std::size_t i = 0; i < 7; i++)
-    {
-        std::cout << vnew[i] << ", ";
-    }
-    std::cout << std::endl;
-    return alpha * vfield + beta * vrand;
-}
-
-ompl::geometric::CVFRRT::Motion *ompl::geometric::CVFRRT::extendTree(Motion *m, base::State *rstate,
+ompl::geometric::CVFRRT::Motion *ompl::geometric::CVFRRT::extendTree(Motion *nmotion, base::State *rstate,
                                                                      const Eigen::VectorXd &v)
 {
     OMPL_INFORM("========== extendTree");
-    base::State *newState = si_->allocState();
-    si_->copyState(newState, m->state);
+    // base::State *newState = si_->allocState();
+    base::State *newState = rstate;
+    base::State *xstate = si_->allocState();
+    // si_->copyState(newState, nmotion->state);
 
-    double d = si_->distance(m->state, rstate);
-    if (d > maxDistance_)
-        d = maxDistance_;
-
-    OMPL_INFORM("d: %f", d);
+    // double d = si_->distance(nmotion->state, rstate);
+    // if (d > maxDistance_)
+    // {
+    //     d = maxDistance_;
+    // }
+    // OMPL_INFORM("d: %f", d);
 
     const base::StateSpacePtr &space = si_->getStateSpace();
-    for (unsigned int i = 0; i < vfdim_; i++)
-        *space->getValueAddressAtIndex(newState, i) += d * v[i];
-    if (!v.hasNaN() && si_->checkMotion(m->state, newState))
+    for (std::size_t i = 0; i < vfdim_; i++)
     {
-        auto *motion = new Motion();
-        motion->state = newState;
-        motion->parent = m;
-        updateExplorationEfficiency(motion);
+        // *space->getValueAddressAtIndex(newState, i) += d * v[i];
+        *space->getValueAddressAtIndex(newState, i) = v[i];
+        // *space->getValueAddressAtIndex(newState, i) = *space->getValueAddressAtIndex(rstate, i);
+
+        // std::cout << i << ": " << *space->getValueAddressAtIndex(newState, i) << ", ";
+    }
+    // std::cout << std::endl;
+
+    double d = si_->distance(nmotion->state, newState);
+    OMPL_INFORM("d: %f", d);
+    OMPL_INFORM("maxDistance_ / d: %f", maxDistance_ / d);
+
+    if (d > maxDistance_)
+    {
+        si_->getStateSpace()->interpolate(nmotion->state, newState, maxDistance_ / d, xstate);
+        newState = xstate;
+    }
+
+    if (!v.hasNaN() && si_->checkMotion(nmotion->state, newState))
+    {
+        auto *motion = new Motion(si_);
+        // motion->state = newState;
+        si_->copyState(motion->state, newState);
+        motion->parent = nmotion;
+        // updateExplorationEfficiency(motion);
         nn_->add(motion);
         return motion;
     }
     else
     {
         si_->freeState(newState);
-        inefficientCount_++;
+        si_->freeState(xstate);
+        // inefficientCount_++;
+        return nullptr;
+    }
+}
+
+ompl::geometric::CVFRRT::Motion *ompl::geometric::CVFRRT::extendTreeRRT(Motion *nmotion, base::State *rstate)
+{
+    OMPL_INFORM("========== extendTreeRRT");
+    base::State *xstate = si_->allocState();
+    base::State *dstate = rstate;
+
+    /* find state to add */
+    double d = si_->distance(nmotion->state, rstate);
+    OMPL_INFORM("d: %f", d);
+    OMPL_INFORM("maxDistance_: %f", maxDistance_);
+    OMPL_INFORM("maxDistance_ / d: %f", maxDistance_ / d);
+
+    if (d > maxDistance_)
+    {
+        si_->getStateSpace()->interpolate(nmotion->state, rstate, maxDistance_ / d, xstate);
+        dstate = xstate;
+    }
+
+    if (si_->checkMotion(nmotion->state, dstate))
+    {
+        auto *motion = new Motion(si_);
+        si_->copyState(motion->state, dstate);
+        motion->parent = nmotion;
+        nn_->add(motion);
+        nmotion = motion;
+        return motion;
+    }
+    else
+    {
+        si_->freeState(xstate);
         return nullptr;
     }
 }
@@ -297,9 +282,6 @@ ompl::base::PlannerStatus ompl::geometric::CVFRRT::solve(const base::PlannerTerm
     if (!sampler_)
         sampler_ = si_->allocStateSampler();
 
-    meanNorm_ = determineMeanNorm();
-    OMPL_INFORM("meanNorm_: %f", meanNorm_);
-
     while (const base::State *st = pis_.nextStart())
     {
         auto *motion = new Motion(si_);
@@ -320,12 +302,11 @@ ompl::base::PlannerStatus ompl::geometric::CVFRRT::solve(const base::PlannerTerm
     double approxdif = std::numeric_limits<double>::infinity();
     auto *rmotion = new Motion(si_);
     base::State *rstate = rmotion->state;
-    base::State *xstate = si_->allocState();
 
-    while (ptc == false)
+    while (!ptc)
     {
         // Sample random state (with goal biasing)
-        if (goal_s && rng_.uniform01() < goalBias_ && goal_s->canSample())
+        if ((goal_s != nullptr) && rng_.uniform01() < goalBias_ && goal_s->canSample())
             goal_s->sampleGoal(rstate);
         else
             sampler_->sampleUniform(rstate);
@@ -335,11 +316,14 @@ ompl::base::PlannerStatus ompl::geometric::CVFRRT::solve(const base::PlannerTerm
 
         // Modify direction based on vector field before extending
         Motion *motion = extendTree(nmotion, rstate, getNewDirection(nmotion->state, rstate));
+
+        // Motion *motion = extendTreeRRT(nmotion, rstate);
+
         if (!motion)
             continue;
 
         // Check if we can connect to the goal
-        double dist = 0;
+        double dist = 0.0;
         bool sat = goal->isSatisfied(motion->state, &dist);
         if (sat)
         {
@@ -382,7 +366,6 @@ ompl::base::PlannerStatus ompl::geometric::CVFRRT::solve(const base::PlannerTerm
         solved = true;
     }
 
-    si_->freeState(xstate);
     if (rmotion->state)
         si_->freeState(rmotion->state);
     delete rmotion;

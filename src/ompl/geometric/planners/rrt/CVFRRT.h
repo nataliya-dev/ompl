@@ -84,9 +84,6 @@ namespace ompl
             /** Use the vector field to alter the direction of a sample. */
             Eigen::VectorXd getNewDirection(const base::State *qnear, const base::State *qrand);
 
-            /** Calculates the weight omega which can be used to compute alpha and beta. */
-            double biasedSampling(const Eigen::VectorXd &vrand, const Eigen::VectorXd &vfield, double lambdaScale);
-
             /**
              * Every nth time this function is called (where the nth step is the update
              * frequency given in the constructor) the value of lambda is updated and
@@ -96,17 +93,13 @@ namespace ompl
             void updateGain();
 
             /**
-             * Computes alpha and beta, using these values to produce the vector returned by
-             * getNewDirection. This produced vector can be used to determine the direction an
-             * added state should be to maximize the upstream criterion of the produced path.
-             */
-            Eigen::VectorXd computeAlphaBeta(double omega, const Eigen::VectorXd &vrand, const Eigen::VectorXd &vfield);
-
-            /**
              * This attempts to extend the tree from the motion m to a new motion
              * in the direction specified by the vector v.
              */
-            Motion *extendTree(Motion *m, base::State *rstate, const Eigen::VectorXd &v);
+            Motion *extendTree(Motion *nmotion, base::State *rstate, const Eigen::VectorXd &v);
+
+            Motion *extendTreeRRT(Motion *nmotion, base::State *rstate);
+
             /**
              * Updates measures for exploration efficiency if a given motion m is added to the
              * nearest NearestNeighbors structure.
