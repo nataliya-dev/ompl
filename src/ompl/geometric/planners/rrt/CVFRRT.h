@@ -66,7 +66,7 @@ namespace ompl
         class CVFRRT : public RRT
         {
         public:
-            using VectorField = std::function<Eigen::VectorXd(const base::State *)>;
+            using VectorField = std::function<Eigen::VectorXd(const base::State *, const base::State *)>;
 
             /** Constructor. */
             CVFRRT(const base::SpaceInformationPtr &si, VectorField vf, double exploration, double initial_lambda,
@@ -77,9 +77,6 @@ namespace ompl
 
             /** Reset internal data. */
             void clear() override;
-
-            /** Make a Monte Carlo estimate for the mean vector norm in the field. */
-            double determineMeanNorm();
 
             /** Use the vector field to alter the direction of a sample. */
             Eigen::VectorXd getNewDirection(const base::State *qnear, const base::State *qrand);
@@ -141,6 +138,8 @@ namespace ompl
 
             /** Dimensionality of vector field */
             unsigned int vfdim_{0u};
+
+            base::State *prevState_;
         };
     }  // namespace geometric
 }  // namespace ompl

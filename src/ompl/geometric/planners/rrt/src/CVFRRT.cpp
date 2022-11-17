@@ -73,19 +73,6 @@ void ompl::geometric::CVFRRT::setup()
     vfdim_ = si_->getStateSpace()->getValueLocations().size();
 }
 
-double ompl::geometric::CVFRRT::determineMeanNorm()
-{
-    ompl::base::State *rstate = si_->allocState();
-    double sum = 0.;
-    for (unsigned int i = 0; i < magic::CVFRRT_MEAN_NORM_SAMPLES; i++)
-    {
-        sampler_->sampleUniform(rstate);
-        sum += vf_(rstate).norm();
-    }
-    si_->freeState(rstate);
-    return sum / magic::CVFRRT_MEAN_NORM_SAMPLES;
-}
-
 Eigen::VectorXd ompl::geometric::CVFRRT::getNewDirection(const base::State *qnear, const base::State *qrand)
 {
     OMPL_INFORM("========== getNewDirection");
@@ -100,7 +87,7 @@ Eigen::VectorXd ompl::geometric::CVFRRT::getNewDirection(const base::State *qnea
     // vrand /= si_->distance(qnear, qrand);
 
     // Get the vector at qnear, and normalize
-    Eigen::VectorXd vfield = vf_(qrand);
+    Eigen::VectorXd vfield = vf_(qrand, prevState_);
 
     const double lambdaScale = vfield.norm();
     OMPL_INFORM("lambdaScale: %f", lambdaScale);
@@ -202,21 +189,25 @@ ompl::geometric::CVFRRT::Motion *ompl::geometric::CVFRRT::extendTree(Motion *nmo
     double d = si_->distance(nmotion->state, newState);
     OMPL_INFORM("d: %f", d);
     OMPL_INFORM("maxDistance_ / d: %f", maxDistance_ / d);
+    maxDistance_ = 0.1;
 
     if (d > maxDistance_)
     {
-        si_->getStateSpace()->interpolate(nmotion->state, newState, maxDistance_ / d, xstate);
+        si_->getStateSpace()->interpolate(nmotion->state, newState, maxDistance_, xstate);
         newState = xstate;
     }
 
     if (!v.hasNaN() && si_->checkMotion(nmotion->state, newState))
     {
+        prevState_ = newState;
+
         auto *motion = new Motion(si_);
         // motion->state = newState;
         si_->copyState(motion->state, newState);
         motion->parent = nmotion;
         // updateExplorationEfficiency(motion);
         nn_->add(motion);
+
         return motion;
     }
     else
