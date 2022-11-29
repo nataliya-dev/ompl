@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2008, Willow Garage, Inc.
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Willow Garage nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2008, Willow Garage, Inc.
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Ioan Sucan, Ryan Luna */
 
@@ -51,6 +51,13 @@ namespace ompl
 {
     namespace geometric
     {
+
+        enum class SimplificationType
+        {
+            DEFAULT,
+            SMOOTH_COST
+        };
+
         /// @cond IGNORE
         /** \brief Forward declaration of ompl::geometric::PathSimplifier */
         OMPL_CLASS_FORWARD(PathSimplifier);
@@ -67,7 +74,8 @@ namespace ompl
         public:
             /** \brief Create an instance for a specified space information. Optionally, a GoalSampleableRegion may be
             passed in to attempt improvements at the end of the path as well. */
-            PathSimplifier(base::SpaceInformationPtr si, const base::GoalPtr &goal = ompl::base::GoalPtr(), const base::OptimizationObjectivePtr& obj=nullptr);
+            PathSimplifier(base::SpaceInformationPtr si, const base::GoalPtr &goal = ompl::base::GoalPtr(),
+                           const base::OptimizationObjectivePtr &obj = nullptr);
 
             virtual ~PathSimplifier() = default;
 
@@ -137,8 +145,8 @@ namespace ompl
                 and its position after perturbation. Also used to determine how far the points on either side of the
                 selected configuration are (stepSize / 2).
 
-                \param maxSteps the maximum number of attemps to perturb the path. If this value is set to 0 (the default),
-                the number of attempts made is equal to the sumber of of states in the \e path (not suggested).
+                \param maxSteps the maximum number of attemps to perturb the path. If this value is set to 0 (the
+               default), the number of attempts made is equal to the sumber of of states in the \e path (not suggested).
 
                 \param maxEmptySteps not all iterations of this function produce an improvement. If an iteration does
                 not produce an improvement, it is called an empty step. \e maxEmptySteps denotes the maximum
@@ -157,7 +165,8 @@ namespace ompl
                 DOI: [10.1109/ICRA.2011.5980048](http://dx.doi.org/10.1109/ICRA.2011.5980048)<br>
                 [[PDF]](http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=5980048)
             */
-            bool perturbPath(PathGeometric &path, double stepSize, unsigned int maxSteps = 0, unsigned int maxEmptySteps = 0, double snapToVertex = 0.005);
+            bool perturbPath(PathGeometric &path, double stepSize, unsigned int maxSteps = 0,
+                             unsigned int maxEmptySteps = 0, double snapToVertex = 0.005);
 
             /** \brief Given a path, attempt to remove vertices from it while keeping the path valid. This is an
                 iterative process that attempts to do "short-cutting" on the path. Connection is attempted between
@@ -187,6 +196,10 @@ namespace ompl
                 */
             void smoothBSpline(PathGeometric &path, unsigned int maxSteps = 5,
                                double minChange = std::numeric_limits<double>::epsilon());
+
+            /** \brief Run a cost-based simplification algorithm on the path as long as the termination condition does
+               not become true. */
+            bool smoothCost(PathGeometric &path, const base::PlannerTerminationCondition &ptc);
 
             /** \brief Given a path, attempt to remove vertices from it while keeping the path valid. Then, try to
                smooth the path. This function applies the same set of default operations to the path, except in
@@ -245,10 +258,11 @@ namespace ompl
              * simplification */
             bool freeStates() const;
 
-        protected:
+            void setSimplificationType(ompl::geometric::SimplificationType type);
 
-            int selectAlongPath(std::vector<double> dists, std::vector<base::State *> states,
-                    double distTo, double threshold, base::State *select_state, int &pos);
+        protected:
+            int selectAlongPath(std::vector<double> dists, std::vector<base::State *> states, double distTo,
+                                double threshold, base::State *select_state, int &pos);
 
             /** \brief The space information this path simplifier uses */
             base::SpaceInformationPtr si_;
@@ -265,8 +279,10 @@ namespace ompl
 
             /** \brief Instance of random number generator */
             RNG rng_;
+
+            SimplificationType simplificationType_ = SimplificationType::DEFAULT;
         };
-    }
-}
+    }  // namespace geometric
+}  // namespace ompl
 
 #endif

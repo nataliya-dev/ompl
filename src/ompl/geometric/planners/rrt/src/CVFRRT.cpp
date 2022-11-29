@@ -87,7 +87,7 @@ Eigen::VectorXd ompl::geometric::CVFRRT::getNewDirection(const base::State *qnea
     // vrand /= si_->distance(qnear, qrand);
 
     // Get the vector at qnear, and normalize
-    Eigen::VectorXd vfield = vf_(qrand, prevState_);
+    Eigen::VectorXd vfield = vf_(qrand);
 
     const double lambdaScale = vfield.norm();
     OMPL_INFORM("lambdaScale: %f", lambdaScale);
@@ -187,20 +187,19 @@ ompl::geometric::CVFRRT::Motion *ompl::geometric::CVFRRT::extendTree(Motion *nmo
     // std::cout << std::endl;
 
     double d = si_->distance(nmotion->state, newState);
+    maxDistance_ = 0.0174533;
     OMPL_INFORM("d: %f", d);
+    OMPL_INFORM("maxDistance_: %f", maxDistance_);
     OMPL_INFORM("maxDistance_ / d: %f", maxDistance_ / d);
-    maxDistance_ = 0.1;
 
     if (d > maxDistance_)
     {
-        si_->getStateSpace()->interpolate(nmotion->state, newState, maxDistance_, xstate);
+        si_->getStateSpace()->interpolate(nmotion->state, newState, maxDistance_ / d, xstate);
         newState = xstate;
     }
 
     if (!v.hasNaN() && si_->checkMotion(nmotion->state, newState))
     {
-        prevState_ = newState;
-
         auto *motion = new Motion(si_);
         // motion->state = newState;
         si_->copyState(motion->state, newState);

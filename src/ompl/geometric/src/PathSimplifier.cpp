@@ -46,7 +46,7 @@
 #include <utility>
 
 ompl::geometric::PathSimplifier::PathSimplifier(base::SpaceInformationPtr si, const base::GoalPtr &goal,
-                                                const base::OptimizationObjectivePtr& obj)
+                                                const base::OptimizationObjectivePtr &obj)
   : si_(std::move(si)), freeStates_(true)
 {
     if (goal)
@@ -401,13 +401,13 @@ bool ompl::geometric::PathSimplifier::perturbPath(PathGeometric &path, double st
 
     std::vector<std::tuple<double, base::Cost, unsigned int>> distCostIndices;
     for (unsigned int i = 0; i < states.size() - 1; i++)
-        distCostIndices.emplace_back(si->distance(states[i], states[i + 1]), obj_->motionCost(states[i], states[i + 1]), i);
+        distCostIndices.emplace_back(si->distance(states[i], states[i + 1]), obj_->motionCost(states[i], states[i + 1]),
+                                     i);
 
     // Sort so highest costs are first
     std::sort(distCostIndices.begin(), distCostIndices.end(),
-              [this](std::tuple<double, base::Cost, unsigned int> a, std::tuple<double, base::Cost, unsigned int> b) {
-                  return obj_->isCostBetterThan(std::get<1>(b), std::get<1>(a));
-              });
+              [this](std::tuple<double, base::Cost, unsigned int> a, std::tuple<double, base::Cost, unsigned int> b)
+              { return obj_->isCostBetterThan(std::get<1>(b), std::get<1>(a)); });
 
     double threshold = dists.back() * snapToVertex;
 
@@ -581,14 +581,13 @@ bool ompl::geometric::PathSimplifier::perturbPath(PathGeometric &path, double st
             distCostIndices.clear();
             for (unsigned int i = 0; i < states.size() - 1; i++)
                 distCostIndices.emplace_back(si->distance(states[i], states[i + 1]),
-                                                          obj_->motionCost(states[i], states[i + 1]), i);
+                                             obj_->motionCost(states[i], states[i + 1]), i);
 
             // Sort so highest costs are first
             std::sort(
                 distCostIndices.begin(), distCostIndices.end(),
-                [this](std::tuple<double, base::Cost, unsigned int> a, std::tuple<double, base::Cost, unsigned int> b) {
-                    return obj_->isCostBetterThan(std::get<1>(b), std::get<1>(a));
-                });
+                [this](std::tuple<double, base::Cost, unsigned int> a, std::tuple<double, base::Cost, unsigned int> b)
+                { return obj_->isCostBetterThan(std::get<1>(b), std::get<1>(a)); });
             threshold = dists.back() * snapToVertex;
             result = true;
             nochange = 0;
@@ -674,9 +673,81 @@ bool ompl::geometric::PathSimplifier::simplify(PathGeometric &path, double maxTi
     return simplify(path, base::timedPlannerTerminationCondition(maxTime), atLeastOnce);
 }
 
+bool ompl::geometric::PathSimplifier::smoothCost(PathGeometric &path, const base::PlannerTerminationCondition &ptc)
+{
+    OMPL_INFORM("Cost based path simplification.");
+
+    const base::SpaceInformationPtr &si = path.getSpaceInformation();
+    base::StateSpacePtr state_space = si->getStateSpace();
+    std::vector<base::State *> &states = path.getStates();
+
+    OMPL_INFORM("state_space->getName(): %s", state_space->getName().c_str());
+    OMPL_INFORM("obj_->getDescription(): %s", obj_->getDescription().c_str());
+    std::vector<base::Cost> costs(states.size(), obj_->identityCost());
+    std::vector<double> dists(states.size(), 0.0);
+    for (unsigned int i = 1; i < costs.size(); ++i)
+    {
+        costs[i] = obj_->motionCost(states[i - 1], states[i]);
+        costs[i] = obj_->motionCost(states[i - 1], states[i]);
+        dists[i] = si->distance(states[i - 1], states[i]);
+        OMPL_INFORM("costs[i]: %f, dists[i]: %f", costs[i].value(), dists[i]);
+    }
+
+    /**
+     * collapseCloseVertices
+     * Create a half-matrix that matches all the joint states on the path with all the other joint states
+     * Check to see if any, that are no neighboring, are close enough to each
+     * If so, remove everything in between them.
+     */
+
+    /**
+     * reduceVertices
+     * Randomly choose two points on the path
+     * Check if the path between them is valid
+     * If so, remove everthing in between them.
+     */
+
+    /**
+     * smoothBSpline
+     * Increases the number of states on the path by interpolating between existing points.
+     */
+
+    std::size_t max_attempts = 1;
+    std::size_t num_states = states.size();
+    for (std::size_t i = 0; i < max_attempts && ptc == false; i++)
+    {
+        for (std::size_t j = 2; j < num_states; j++)
+        {
+            double d1 = si->distance(states[j], states[j - 1]);
+            double d2 = si->distance(states[j - 1], states[j - 2]);
+            double d3 = si->distance(states[j], states[j - 2]);
+
+            double cost1 = obj_->motionCost(states[j], states[j - 1]).value();
+            double cost2 = obj_->motionCost(states[j - 1], states[j - 2]).value();
+            double cost3 = obj_->motionCost(states[j], states[j - 2]).value();
+
+            if (d3 < d1 + d2 && cost3 < cost1 + cost2)
+            {
+                OMPL_INFORM("Erasing state with idx: %u", j);
+                states.erase(states.begin() + j - 1);
+            }
+        }
+    }
+
+    smoothBSpline(path, 3, path.length() / 100.0);
+
+    return true;
+}
+
 bool ompl::geometric::PathSimplifier::simplify(PathGeometric &path, const base::PlannerTerminationCondition &ptc,
                                                bool atLeastOnce)
 {
+    // if (simplificationType_ == ompl::geometric::SimplificationType::SMOOTH_COST)
+    // {
+    return smoothCost(path, ptc);
+    // }
+    OMPL_INFORM("Default path simplification.");
+
     if (path.getStateCount() < 3)
         return true;
 
@@ -711,7 +782,8 @@ bool ompl::geometric::PathSimplifier::simplify(PathGeometric &path, const base::
                     OMPL_WARN("Solution path may slightly touch on an invalid region of the state space");
                 }
                 else if (!p.first)
-                    OMPL_DEBUG("The solution path was slightly touching on an invalid region of the state space, but "
+                    OMPL_DEBUG("The solution path was slzzzightly touching on an invalid region of the state space, "
+                               "but "
                                "it was "
                                "successfully fixed.");
             }
@@ -941,4 +1013,9 @@ int ompl::geometric::PathSimplifier::selectAlongPath(std::vector<double> dists, 
         si_->getStateSpace()->interpolate(states[pos], states[pos + 1], t, select_state);
         return -1;
     }
+}
+
+void ompl::geometric::PathSimplifier::setSimplificationType(ompl::geometric::SimplificationType type)
+{
+    simplificationType_ = type;
 }
