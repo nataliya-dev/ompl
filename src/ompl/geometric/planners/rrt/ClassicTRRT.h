@@ -34,8 +34,8 @@
 
 /* Author: Dave Coleman, Ryan Luna */
 
-#ifndef OMPL_GEOMETRIC_PLANNERS_RRT_TRRT_
-#define OMPL_GEOMETRIC_PLANNERS_RRT_TRRT_
+#ifndef OMPL_GEOMETRIC_PLANNERS_RRT_CLASSICTRRT_
+#define OMPL_GEOMETRIC_PLANNERS_RRT_CLASSICTRRT_
 
 #include "ompl/geometric/planners/PlannerIncludes.h"
 #include "ompl/datastructures/NearestNeighbors.h"
@@ -80,13 +80,13 @@ namespace ompl
         */
 
         /** \brief Transition-based Rapidly-exploring Random Trees */
-        class TRRT : public base::Planner
+        class ClassicTRRT : public base::Planner
         {
         public:
             /** \brief Constructor */
-            TRRT(const base::SpaceInformationPtr &si);
+            ClassicTRRT(const base::SpaceInformationPtr &si);
 
-            ~TRRT() override;
+            ~ClassicTRRT() override;
 
             void getPlannerData(base::PlannerData &data) const override;
 
@@ -281,7 +281,7 @@ namespace ompl
             Motion *lastGoalMotion_{nullptr};
 
             // *********************************************************************************************************
-            // TRRT-Specific Variables
+            // ClassicTRRT-Specific Variables
             // *********************************************************************************************************
 
             // Transtion Test -----------------------------------------------------------------------
@@ -307,6 +307,8 @@ namespace ompl
             /** \brief The initial value of \e temp_ */
             double initTemperature_;
 
+            int nFail_;
+
             // Minimum Expansion Control --------------------------------------------------------------
 
             /** \brief The number of non-frontier nodes in the search tree */
@@ -321,9 +323,7 @@ namespace ompl
             /** \brief Target ratio of non-frontier nodes to frontier nodes. rho */
             double frontierNodeRatio_;
 
-            int nFail_;
-
-            /** \brief The optimization objective being optimized by TRRT */
+            /** \brief The optimization objective being optimized by ClassicTRRT */
             ompl::base::OptimizationObjectivePtr opt_;
         };
     }  // namespace geometric

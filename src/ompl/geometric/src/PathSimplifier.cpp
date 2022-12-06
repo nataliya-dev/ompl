@@ -742,10 +742,10 @@ bool ompl::geometric::PathSimplifier::smoothCost(PathGeometric &path, const base
 bool ompl::geometric::PathSimplifier::simplify(PathGeometric &path, const base::PlannerTerminationCondition &ptc,
                                                bool atLeastOnce)
 {
-    // if (simplificationType_ == ompl::geometric::SimplificationType::SMOOTH_COST)
-    // {
-    return smoothCost(path, ptc);
-    // }
+    if (simplificationType_ == ompl::geometric::SimplificationType::SMOOTH_COST)
+    {
+        return smoothCost(path, ptc);
+    }
     OMPL_INFORM("Default path simplification.");
 
     if (path.getStateCount() < 3)

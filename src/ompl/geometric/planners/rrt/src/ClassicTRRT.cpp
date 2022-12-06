@@ -34,44 +34,47 @@
 
 /* Author: Dave Coleman, Ryan Luna */
 
-#include "ompl/geometric/planners/rrt/TRRT.h"
+#include "ompl/geometric/planners/rrt/ClassicTRRT.h"
 #include "ompl/base/objectives/MechanicalWorkOptimizationObjective.h"
 #include "ompl/base/goals/GoalSampleableRegion.h"
 #include "ompl/tools/config/SelfConfig.h"
 #include "ompl/tools/config/MagicConstants.h"
 #include <limits>
 
-ompl::geometric::TRRT::TRRT(const base::SpaceInformationPtr &si) : base::Planner(si, "TRRT")
+ompl::geometric::ClassicTRRT::ClassicTRRT(const base::SpaceInformationPtr &si) : base::Planner(si, "ClassicTRRT")
 {
     // Standard RRT Variables
     specs_.approximateSolutions = true;
     specs_.directed = true;
 
-    Planner::declareParam<double>("range", this, &TRRT::setRange, &TRRT::getRange, "0.:1.:10000.");
-    Planner::declareParam<double>("goal_bias", this, &TRRT::setGoalBias, &TRRT::getGoalBias, "0.:.05:1.");
+    Planner::declareParam<double>("range", this, &ClassicTRRT::setRange, &ClassicTRRT::getRange, "0.:1.:10000.");
+    Planner::declareParam<double>("goal_bias", this, &ClassicTRRT::setGoalBias, &ClassicTRRT::getGoalBias, "0.:.05:1.");
 
-    // TRRT Specific Variables
+    // ClassicTRRT Specific Variables
     frontierThreshold_ = 0.0;  // set in setup()
     setTempChangeFactor(0.1);  // how much to increase the temp each time
     costThreshold_ = base::Cost(std::numeric_limits<double>::infinity());
     initTemperature_ = 100;    // where the temperature starts out
     frontierNodeRatio_ = 0.1;  // 1/10, or 1 nonfrontier for every 10 frontier
 
-    Planner::declareParam<double>("temp_change_factor", this, &TRRT::setTempChangeFactor, &TRRT::getTempChangeFactor,
-                                  "0.:.1:1.");
-    Planner::declareParam<double>("init_temperature", this, &TRRT::setInitTemperature, &TRRT::getInitTemperature);
-    Planner::declareParam<double>("frontier_threshold", this, &TRRT::setFrontierThreshold, &TRRT::getFrontierThreshold);
-    Planner::declareParam<double>("frontier_node_ratio", this, &TRRT::setFrontierNodeRatio,
-                                  &TRRT::getFrontierNodeRatio);
-    Planner::declareParam<double>("cost_threshold", this, &TRRT::setCostThreshold, &TRRT::getCostThreshold);
+    Planner::declareParam<double>("temp_change_factor", this, &ClassicTRRT::setTempChangeFactor,
+                                  &ClassicTRRT::getTempChangeFactor, "0.:.1:1.");
+    Planner::declareParam<double>("init_temperature", this, &ClassicTRRT::setInitTemperature,
+                                  &ClassicTRRT::getInitTemperature);
+    Planner::declareParam<double>("frontier_threshold", this, &ClassicTRRT::setFrontierThreshold,
+                                  &ClassicTRRT::getFrontierThreshold);
+    Planner::declareParam<double>("frontier_node_ratio", this, &ClassicTRRT::setFrontierNodeRatio,
+                                  &ClassicTRRT::getFrontierNodeRatio);
+    Planner::declareParam<double>("cost_threshold", this, &ClassicTRRT::setCostThreshold,
+                                  &ClassicTRRT::getCostThreshold);
 }
 
-ompl::geometric::TRRT::~TRRT()
+ompl::geometric::ClassicTRRT::~ClassicTRRT()
 {
     freeMemory();
 }
 
-void ompl::geometric::TRRT::clear()
+void ompl::geometric::ClassicTRRT::clear()
 {
     Planner::clear();
     sampler_.reset();
@@ -80,7 +83,7 @@ void ompl::geometric::TRRT::clear()
         nearestNeighbors_->clear();
     lastGoalMotion_ = nullptr;
 
-    // Clear TRRT specific variables ---------------------------------------------------------
+    // Clear ClassicTRRT specific variables ---------------------------------------------------------
     temp_ = initTemperature_;
     nonfrontierCount_ = 1;
     frontierCount_ = 1;  // init to 1 to prevent division by zero error
@@ -88,7 +91,7 @@ void ompl::geometric::TRRT::clear()
         bestCost_ = worstCost_ = opt_->identityCost();
 }
 
-void ompl::geometric::TRRT::setup()
+void ompl::geometric::ClassicTRRT::setup()
 {
     Planner::setup();
     tools::SelfConfig selfConfig(si_, getName());
@@ -129,14 +132,14 @@ void ompl::geometric::TRRT::setup()
     // Set the distance function
     nearestNeighbors_->setDistanceFunction([this](const Motion *a, const Motion *b) { return distanceFunction(a, b); });
 
-    // Setup TRRT specific variables ---------------------------------------------------------
+    // Setup ClassicTRRT specific variables ---------------------------------------------------------
     temp_ = initTemperature_;
     nonfrontierCount_ = 1;
     frontierCount_ = 1;  // init to 1 to prevent division by zero error
     bestCost_ = worstCost_ = opt_->identityCost();
 }
 
-void ompl::geometric::TRRT::freeMemory()
+void ompl::geometric::ClassicTRRT::freeMemory()
 {
     // Delete all motions, states and the nearest neighbors data structure
     if (nearestNeighbors_)
@@ -153,7 +156,7 @@ void ompl::geometric::TRRT::freeMemory()
 }
 
 ompl::base::PlannerStatus
-ompl::geometric::TRRT::solve(const base::PlannerTerminationCondition &plannerTerminationCondition)
+ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &plannerTerminationCondition)
 {
     // Basic error checking
     checkValidity();
@@ -190,7 +193,7 @@ ompl::geometric::TRRT::solve(const base::PlannerTerminationCondition &plannerTer
         return base::PlannerStatus::INVALID_START;
     }
 
-    // Create state sampler if this is TRRT's first run
+    // Create state sampler if this is ClassicTRRT's first run
     if (!sampler_)
         sampler_ = si_->allocStateSampler();
 
@@ -380,7 +383,7 @@ ompl::geometric::TRRT::solve(const base::PlannerTerminationCondition &plannerTer
     return {solved, approximate};
 }
 
-void ompl::geometric::TRRT::getPlannerData(base::PlannerData &data) const
+void ompl::geometric::ClassicTRRT::getPlannerData(base::PlannerData &data) const
 {
     Planner::getPlannerData(data);
 
@@ -400,7 +403,7 @@ void ompl::geometric::TRRT::getPlannerData(base::PlannerData &data) const
     }
 }
 
-bool ompl::geometric::TRRT::transitionTest(const base::Cost &motionCost)
+bool ompl::geometric::ClassicTRRT::transitionTest(const base::Cost &motionCost)
 {
     OMPL_INFORM("motionCost.value(): %f", motionCost.value());
     OMPL_INFORM("costThreshold_.value(): %f", costThreshold_.value());
@@ -456,7 +459,7 @@ bool ompl::geometric::TRRT::transitionTest(const base::Cost &motionCost)
     return false;
 }
 
-bool ompl::geometric::TRRT::minExpansionControl(double randMotionDistance)
+bool ompl::geometric::ClassicTRRT::minExpansionControl(double randMotionDistance)
 {
     OMPL_INFORM("frontierThreshold_: %f", frontierThreshold_);
 

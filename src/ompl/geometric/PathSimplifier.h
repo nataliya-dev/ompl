@@ -54,7 +54,7 @@ namespace ompl
 
         enum class SimplificationType
         {
-            DEFAULT,
+            DEFAULT = 0,
             SMOOTH_COST
         };
 
