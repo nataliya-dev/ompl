@@ -49,14 +49,6 @@ ompl::geometric::ClassicTRRT::ClassicTRRT(const base::SpaceInformationPtr &si) :
 
     Planner::declareParam<double>("range", this, &ClassicTRRT::setRange, &ClassicTRRT::getRange, "0.:1.:10000.");
     Planner::declareParam<double>("goal_bias", this, &ClassicTRRT::setGoalBias, &ClassicTRRT::getGoalBias, "0.:.05:1.");
-
-    // ClassicTRRT Specific Variables
-    frontierThreshold_ = 0.0;  // set in setup()
-    setTempChangeFactor(0.1);  // how much to increase the temp each time
-    costThreshold_ = base::Cost(std::numeric_limits<double>::infinity());
-    initTemperature_ = 100;    // where the temperature starts out
-    frontierNodeRatio_ = 0.1;  // 1/10, or 1 nonfrontier for every 10 frontier
-
     Planner::declareParam<double>("temp_change_factor", this, &ClassicTRRT::setTempChangeFactor,
                                   &ClassicTRRT::getTempChangeFactor, "0.:.1:1.");
     Planner::declareParam<double>("init_temperature", this, &ClassicTRRT::setInitTemperature,
@@ -87,6 +79,7 @@ void ompl::geometric::ClassicTRRT::clear()
     temp_ = initTemperature_;
     nonfrontierCount_ = 1;
     frontierCount_ = 1;  // init to 1 to prevent division by zero error
+    nFail_ = 0;
     if (opt_)
         bestCost_ = worstCost_ = opt_->identityCost();
 }
@@ -96,11 +89,19 @@ void ompl::geometric::ClassicTRRT::setup()
     Planner::setup();
     tools::SelfConfig selfConfig(si_, getName());
 
-    maxDistance_ = 1.0;
-    frontierThreshold_ = 0.33;
-    costThreshold_ = base::Cost(0.5);
+    // ClassicTRRT Specific Variables
+    // frontierThreshold_ = 0.0;  // set in setup()
+    setTempChangeFactor(0.1);  // how much to increase the temp each time
+    // costThreshold_ = base::Cost(std::numeric_limits<double>::infinity());
+    initTemperature_ = 1;      // where the temperature starts out
+    frontierNodeRatio_ = 0.1;  // 1/10, or 1 nonfrontier for every 10 frontier
+
+    maxDistance_ = 0.5;
+    frontierThreshold_ = 0.1;
+    costThreshold_ = base::Cost(0.8);
     tempChangeFactor_ = 1.1;
-    nFail_ = 0;
+    K_ = 1.0;
+    nFailMax_ = 10.0;
 
     if (!pdef_ || !pdef_->hasOptimizationObjective())
     {
@@ -252,7 +253,6 @@ ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &pla
 
         // Distance from near state q_n to a random state
         randMotionDistance = si_->distance(nearMotion->state, randState);
-        // maxDistance_ = 0.1;
 
         OMPL_INFORM("randMotionDistance: %f", randMotionDistance);
         OMPL_INFORM("maxDistance_: %f", maxDistance_);
@@ -280,19 +280,22 @@ ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &pla
         // IV.
         // this stage integrates collision detections in the presence of obstacles and checks for collisions
         if (!si_->checkMotion(nearMotion->state, newState))
+        {
+            OMPL_INFORM("Collision state");
             continue;  // try a new sample
-
-        // Minimum Expansion Control
-        // A possible side effect may appear when the tree expansion toward unexplored regions remains slow, and the
-        // new nodes contribute only to refine already explored regions.
-        if (!minExpansionControl(randMotionDistance))
-            continue;  // give up on this one and try a new sample
+        }
 
         // base::Cost childCost = opt_->stateCost(newState);
         base::Cost childCost = opt_->motionCost(nearMotion->state, newState);
 
         // Only add this motion to the tree if the transition test accepts it
-        if (!transitionTest(opt_->motionCost(nearMotion->state, newState)))
+        if (!transitionTest(nearMotion, newState, randMotionDistance, childCost))
+            continue;  // give up on this one and try a new sample
+
+        // Minimum Expansion Control
+        // A possible side effect may appear when the tree expansion toward unexplored regions remains slow, and the
+        // new nodes contribute only to refine already explored regions.
+        if (!minExpansionControl(randMotionDistance))
             continue;  // give up on this one and try a new sample
 
         // V.
@@ -403,60 +406,72 @@ void ompl::geometric::ClassicTRRT::getPlannerData(base::PlannerData &data) const
     }
 }
 
-bool ompl::geometric::ClassicTRRT::transitionTest(const base::Cost &motionCost)
+bool ompl::geometric::ClassicTRRT::transitionTest(const Motion *parentMotion, const base::State *newState, double dist,
+                                                  const base::Cost &childCost)
 {
-    OMPL_INFORM("motionCost.value(): %f", motionCost.value());
+    const base::State *parentState = parentMotion->state;
+    base::Cost parentCost = parentMotion->cost;
+    OMPL_INFORM("childCost.value(): %f", childCost.value());
+    OMPL_INFORM("parentCost.value(): %f", parentCost.value());
     OMPL_INFORM("costThreshold_.value(): %f", costThreshold_.value());
 
     // Disallow any cost that is not better than the cost threshold
-    if (!opt_->isCostBetterThan(motionCost, costThreshold_))
+    if (!opt_->isCostBetterThan(childCost, costThreshold_))
     {
-        OMPL_INFORM("isCostBetterThan returns false");
+        OMPL_INFORM("Cost is above threshold.");
         return false;
     }
 
-    // Always accept if the cost is near or below zero
-    if (motionCost.value() < 1e-4)
+    // always allow cost that is better than parent
+    if (opt_->isCostBetterThan(childCost, parentCost))
     {
-        OMPL_INFORM("cost is near or below zero");
+        OMPL_INFORM("Motion cost is better than parent cost");
         return true;
     }
 
-    double dCost = motionCost.value();
-    double transitionProbability = exp(-dCost / temp_);
-    OMPL_INFORM("temp_: %f", temp_);
+    // Always accept if the cost is near or below zero
+    if (childCost.value() < 1e-4)
+    {
+        OMPL_INFORM("Cost is near or below zero.");
+        return true;
+    }
+
+    double dCost = parentCost.value() - childCost.value();
     OMPL_INFORM("dCost: %f", dCost);
+    OMPL_INFORM("dist: %f", dist);
+    double dCostDist = dCost / dist;
+    OMPL_INFORM("dCostDist: %f", dCostDist);
+
+    OMPL_INFORM("temp_: %f", temp_);
+    // OMPL_INFORM("K_: %f", K_);
+
+    double transitionProbability = exp(dCostDist / (temp_ * K_));
     OMPL_INFORM("transitionProbability: %f", transitionProbability);
 
     if (transitionProbability > 0.5)
     {
-        double costRange = worstCost_.value() - bestCost_.value();
         temp_ /= tempChangeFactor_;
-        OMPL_INFORM("tempChangeFactor_: %f", tempChangeFactor_);
-        OMPL_INFORM("costRange: %f", costRange);
-        OMPL_INFORM("new temp_: %f", temp_);
-
-        // if (fabs(costRange) > 1e-4)
-        // {  // Do not divide by zero
-        //    // Successful transition test.  Decrease the temperature slightly
-
-        //     temp_ /= exp(dCost / (0.1 * costRange));
-        //     OMPL_INFORM("exp(dCost / (0.1 * costRange)): %f", exp(dCost / (0.1 * costRange)));
-        // }
-
         nFail_ = 0;
-
+        OMPL_INFORM("transitionProbability: temp_: %f", temp_);
         return true;
     }
+    else
+    {
+        if (nFail_ > nFailMax_)
+        {
+            temp_ *= tempChangeFactor_;
+            OMPL_INFORM("nFail > nFailMax_: temp_: %f", temp_);
+            nFail_ = 0;
+        }
+        else
+        {
+            nFail_++;
+            OMPL_INFORM("nFail_: %d", nFail_);
+        }
 
-    // The transition failed.  Increase the temperature (slightly)
-    temp_ *= tempChangeFactor_;
-    nFail_++;
-    OMPL_INFORM("tempChangeFactor_: %f", tempChangeFactor_);
-    OMPL_INFORM("new temp_: %f", temp_);
-    OMPL_INFORM("nFail_: %f", nFail_);
-
-    return false;
+        OMPL_INFORM("tempChangeFactor_: %f", tempChangeFactor_);
+        return false;
+    }
 }
 
 bool ompl::geometric::ClassicTRRT::minExpansionControl(double randMotionDistance)

@@ -256,7 +256,8 @@ namespace ompl
             /** \brief Filter irrelevant configuration regarding the search of low-cost paths before inserting into tree
                 \param motionCost - cost of the motion to be evaluated
             */
-            bool transitionTest(const base::Cost &motionCost);
+            bool transitionTest(const Motion *parentMotion, const base::State *newState, double dist,
+                                const base::Cost &childCost);
 
             /** \brief Use ratio to prefer frontier nodes to nonfrontier ones */
             bool minExpansionControl(double randMotionDistance);
@@ -291,6 +292,8 @@ namespace ompl
                 Dynamically tuned according to the information acquired during exploration */
             double temp_;
 
+            double K_{1.0};
+
             /** \brief The most desirable (e.g., minimum) cost value in the search tree */
             base::Cost bestCost_;
 
@@ -308,6 +311,8 @@ namespace ompl
             double initTemperature_;
 
             int nFail_;
+
+            int nFailMax_;
 
             // Minimum Expansion Control --------------------------------------------------------------
 
