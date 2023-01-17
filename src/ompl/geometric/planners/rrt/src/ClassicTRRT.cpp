@@ -98,7 +98,7 @@ void ompl::geometric::ClassicTRRT::setup()
 
     maxDistance_ = 0.5;
     frontierThreshold_ = 0.1;
-    costThreshold_ = base::Cost(0.8);
+    costThreshold_ = base::Cost(0.1);
     tempChangeFactor_ = 1.1;
     K_ = 1.0;
     nFailMax_ = 10.0;
@@ -289,14 +289,14 @@ ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &pla
         base::Cost childCost = opt_->motionCost(nearMotion->state, newState);
 
         // Only add this motion to the tree if the transition test accepts it
-        if (!transitionTest(nearMotion, newState, randMotionDistance, childCost))
+        if (!simpleTransitionTest(nearMotion, newState, randMotionDistance, childCost))
             continue;  // give up on this one and try a new sample
 
         // Minimum Expansion Control
         // A possible side effect may appear when the tree expansion toward unexplored regions remains slow, and the
         // new nodes contribute only to refine already explored regions.
-        if (!minExpansionControl(randMotionDistance))
-            continue;  // give up on this one and try a new sample
+        // if (!minExpansionControl(randMotionDistance))
+        //     continue;  // give up on this one and try a new sample
 
         // V.
 
@@ -308,14 +308,15 @@ ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &pla
 
         // Add motion to data structure
         nearestNeighbors_->add(motion);
-        OMPL_INFORM("bestCost_.value(): %f", bestCost_.value());
-        OMPL_INFORM("worstCost_.value(): %f", worstCost_.value());
-        OMPL_INFORM("motion->cost.value(): %f", motion->cost.value());
 
-        if (opt_->isCostBetterThan(motion->cost, bestCost_))  // motion->cost is better than the existing best
-            bestCost_ = motion->cost;
-        if (opt_->isCostBetterThan(worstCost_, motion->cost))  // motion->cost is worse than the existing worst
-            worstCost_ = motion->cost;
+        // OMPL_INFORM("bestCost_.value(): %f", bestCost_.value());
+        // OMPL_INFORM("worstCost_.value(): %f", worstCost_.value());
+        // OMPL_INFORM("motion->cost.value(): %f", motion->cost.value());
+
+        // if (opt_->isCostBetterThan(motion->cost, bestCost_))  // motion->cost is better than the existing best
+        //     bestCost_ = motion->cost;
+        // if (opt_->isCostBetterThan(worstCost_, motion->cost))  // motion->cost is worse than the existing worst
+        //     worstCost_ = motion->cost;
 
         OMPL_INFORM("+++ State added +++");
 
@@ -471,6 +472,47 @@ bool ompl::geometric::ClassicTRRT::transitionTest(const Motion *parentMotion, co
 
         OMPL_INFORM("tempChangeFactor_: %f", tempChangeFactor_);
         return false;
+    }
+}
+
+bool ompl::geometric::ClassicTRRT::simpleTransitionTest(const Motion *parentMotion, const base::State *newState,
+                                                        double dist, const base::Cost &childCost)
+{
+    const base::State *parentState = parentMotion->state;
+    base::Cost parentCost = parentMotion->cost;
+    OMPL_INFORM("childCost.value(): %f", childCost.value());
+    OMPL_INFORM("parentCost.value(): %f", parentCost.value());
+    OMPL_INFORM("costThreshold_.value(): %f", costThreshold_.value());
+
+    // always allow cost that is better than parent
+    if (opt_->isCostBetterThan(childCost, parentCost))
+    {
+        OMPL_INFORM("Motion cost is better than parent cost");
+        return true;
+    }
+
+    // Always accept if the cost is near or below zero
+    if (childCost.value() < 1e-4)
+    {
+        OMPL_INFORM("Cost is near or below zero.");
+        return true;
+    }
+
+    // Disallow any cost that is not better than the cost threshold
+    if (!opt_->isCostBetterThan(childCost, costThreshold_))
+    {
+        OMPL_INFORM("Cost is above threshold.");
+
+        if (nFail_ > nFailMax_)
+        {
+            nFail_ = 0;
+            costThreshold_.set(costThreshold_.value() + 0.2);
+        }
+        else
+        {
+            nFail_++;
+            OMPL_INFORM("nFail_: %d", nFail_);
+        }
     }
 }
 

@@ -258,7 +258,8 @@ namespace ompl
             */
             bool transitionTest(const Motion *parentMotion, const base::State *newState, double dist,
                                 const base::Cost &childCost);
-
+            bool simpleTransitionTest(const Motion *parentMotion, const base::State *newState, double dist,
+                                      const base::Cost &childCost);
             /** \brief Use ratio to prefer frontier nodes to nonfrontier ones */
             bool minExpansionControl(double randMotionDistance);
 
