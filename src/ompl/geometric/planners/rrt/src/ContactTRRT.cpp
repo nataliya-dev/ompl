@@ -34,39 +34,40 @@
 
 /* Author: Dave Coleman, Ryan Luna */
 
-#include "ompl/geometric/planners/rrt/ClassicTRRT.h"
+#include "ompl/geometric/planners/rrt/ContactTRRT.h"
 #include "ompl/base/objectives/MechanicalWorkOptimizationObjective.h"
 #include "ompl/base/goals/GoalSampleableRegion.h"
 #include "ompl/tools/config/SelfConfig.h"
 #include "ompl/tools/config/MagicConstants.h"
 #include <limits>
 
-ompl::geometric::ClassicTRRT::ClassicTRRT(const base::SpaceInformationPtr &si) : base::Planner(si, "ClassicTRRT")
+ompl::geometric::ContactTRRT::ContactTRRT(const base::SpaceInformationPtr &si, VectorField vf)
+  : base::Planner(si, "ContactTRRT"), vf_(std::move(vf))
 {
     // Standard RRT Variables
     specs_.approximateSolutions = true;
     specs_.directed = true;
 
-    Planner::declareParam<double>("range", this, &ClassicTRRT::setRange, &ClassicTRRT::getRange, "0.:1.:10000.");
-    Planner::declareParam<double>("goal_bias", this, &ClassicTRRT::setGoalBias, &ClassicTRRT::getGoalBias, "0.:.05:1.");
-    Planner::declareParam<double>("temp_change_factor", this, &ClassicTRRT::setTempChangeFactor,
-                                  &ClassicTRRT::getTempChangeFactor, "0.:.1:1.");
-    Planner::declareParam<double>("init_temperature", this, &ClassicTRRT::setInitTemperature,
-                                  &ClassicTRRT::getInitTemperature);
-    Planner::declareParam<double>("frontier_threshold", this, &ClassicTRRT::setFrontierThreshold,
-                                  &ClassicTRRT::getFrontierThreshold);
-    Planner::declareParam<double>("frontier_node_ratio", this, &ClassicTRRT::setFrontierNodeRatio,
-                                  &ClassicTRRT::getFrontierNodeRatio);
-    Planner::declareParam<double>("cost_threshold", this, &ClassicTRRT::setCostThreshold,
-                                  &ClassicTRRT::getCostThreshold);
+    Planner::declareParam<double>("range", this, &ContactTRRT::setRange, &ContactTRRT::getRange, "0.:1.:10000.");
+    Planner::declareParam<double>("goal_bias", this, &ContactTRRT::setGoalBias, &ContactTRRT::getGoalBias, "0.:.05:1.");
+    Planner::declareParam<double>("temp_change_factor", this, &ContactTRRT::setTempChangeFactor,
+                                  &ContactTRRT::getTempChangeFactor, "0.:.1:1.");
+    Planner::declareParam<double>("init_temperature", this, &ContactTRRT::setInitTemperature,
+                                  &ContactTRRT::getInitTemperature);
+    Planner::declareParam<double>("frontier_threshold", this, &ContactTRRT::setFrontierThreshold,
+                                  &ContactTRRT::getFrontierThreshold);
+    Planner::declareParam<double>("frontier_node_ratio", this, &ContactTRRT::setFrontierNodeRatio,
+                                  &ContactTRRT::getFrontierNodeRatio);
+    Planner::declareParam<double>("cost_threshold", this, &ContactTRRT::setCostThreshold,
+                                  &ContactTRRT::getCostThreshold);
 }
 
-ompl::geometric::ClassicTRRT::~ClassicTRRT()
+ompl::geometric::ContactTRRT::~ContactTRRT()
 {
     freeMemory();
 }
 
-void ompl::geometric::ClassicTRRT::clear()
+void ompl::geometric::ContactTRRT::clear()
 {
     Planner::clear();
     sampler_.reset();
@@ -75,7 +76,7 @@ void ompl::geometric::ClassicTRRT::clear()
         nearestNeighbors_->clear();
     lastGoalMotion_ = nullptr;
 
-    // Clear ClassicTRRT specific variables ---------------------------------------------------------
+    // Clear ContactTRRT specific variables ---------------------------------------------------------
     temp_ = initTemperature_;
     nonfrontierCount_ = 1;
     frontierCount_ = 1;  // init to 1 to prevent division by zero error
@@ -84,23 +85,23 @@ void ompl::geometric::ClassicTRRT::clear()
         bestCost_ = worstCost_ = opt_->identityCost();
 }
 
-void ompl::geometric::ClassicTRRT::setup()
+void ompl::geometric::ContactTRRT::setup()
 {
     Planner::setup();
     tools::SelfConfig selfConfig(si_, getName());
 
-    // ClassicTRRT Specific Variables
+    // ContactTRRT Specific Variables
     // frontierThreshold_ = 0.0;  // set in setup()
-    // setTempChangeFactor(0.1);  // how much to increase the temp each time
+    setTempChangeFactor(0.1);  // how much to increase the temp each time
     // costThreshold_ = base::Cost(std::numeric_limits<double>::infinity());
-    initTemperature_ = 0.1;    // where the temperature starts out
+    initTemperature_ = 1;      // where the temperature starts out
     frontierNodeRatio_ = 0.1;  // 1/10, or 1 nonfrontier for every 10 frontier
 
     maxDistance_ = 0.5;
     frontierThreshold_ = 0.1;
-    costThreshold_ = base::Cost(100.0);
-    tempChangeFactor_ = 2.0;
-    K_ = 0.5;
+    costThreshold_ = base::Cost(0.1);
+    tempChangeFactor_ = 1.1;
+    K_ = 1.0;
     nFailMax_ = 10;
     nFail_ = 0;
 
@@ -136,14 +137,14 @@ void ompl::geometric::ClassicTRRT::setup()
     // Set the distance function
     nearestNeighbors_->setDistanceFunction([this](const Motion *a, const Motion *b) { return distanceFunction(a, b); });
 
-    // Setup ClassicTRRT specific variables ---------------------------------------------------------
+    // Setup ContactTRRT specific variables ---------------------------------------------------------
     temp_ = initTemperature_;
     nonfrontierCount_ = 1;
     frontierCount_ = 1;  // init to 1 to prevent division by zero error
     bestCost_ = worstCost_ = opt_->identityCost();
 }
 
-void ompl::geometric::ClassicTRRT::freeMemory()
+void ompl::geometric::ContactTRRT::freeMemory()
 {
     // Delete all motions, states and the nearest neighbors data structure
     if (nearestNeighbors_)
@@ -160,7 +161,7 @@ void ompl::geometric::ClassicTRRT::freeMemory()
 }
 
 ompl::base::PlannerStatus
-ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &plannerTerminationCondition)
+ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &plannerTerminationCondition)
 {
     // Basic error checking
     checkValidity();
@@ -197,7 +198,7 @@ ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &pla
         return base::PlannerStatus::INVALID_START;
     }
 
-    // Create state sampler if this is ClassicTRRT's first run
+    // Create state sampler if this is ContactTRRT's first run
     if (!sampler_)
         sampler_ = si_->allocStateSampler();
 
@@ -272,14 +273,13 @@ ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &pla
 
             // Update the distance between near and new with the interpolated_state
             randMotionDistance = si_->distance(nearMotion->state, interpolatedState);
+            // OMPL_INFORM("randMotionDistance: %f", randMotionDistance);
 
             // Use the interpolated state as the new state
             newState = interpolatedState;
         }
         else  // Random state is close enough
             newState = randState;
-
-        OMPL_INFORM("randMotionDistance: %f", randMotionDistance);
 
         // IV.
         // this stage integrates collision detections in the presence of obstacles and checks for collisions
@@ -292,15 +292,15 @@ ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &pla
         // base::Cost childCost = opt_->stateCost(newState);
         base::Cost childCost = opt_->motionCost(nearMotion->state, newState);
 
+        // Only add this motion to the tree if the transition test accepts it
+        if (!newTransitionTest(nearMotion, newState))
+            continue;  // give up on this one and try a new sample
+
         // Minimum Expansion Control
         // A possible side effect may appear when the tree expansion toward unexplored regions remains slow, and the
         // new nodes contribute only to refine already explored regions.
-        if (!minExpansionControl(randMotionDistance))
-            continue;  // give up on this one and try a new sample
-
-        // Only add this motion to the tree if the transition test accepts it
-        if (!transitionTest(nearMotion, randMotionDistance, childCost))
-            continue;  // give up on this one and try a new sample
+        // if (!minExpansionControl(randMotionDistance))
+        //     continue;  // give up on this one and try a new sample
 
         // V.
 
@@ -310,6 +310,9 @@ ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &pla
         motion->parent = nearMotion;  // link q_new to q_near as an edge
         motion->cost = childCost;
 
+        motion->vthresh = nearMotion->vthresh;
+        motion->vnumfail = nearMotion->vnumfail;
+
         // Add motion to data structure
         nearestNeighbors_->add(motion);
 
@@ -317,10 +320,10 @@ ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &pla
         // OMPL_INFORM("worstCost_.value(): %f", worstCost_.value());
         // OMPL_INFORM("motion->cost.value(): %f", motion->cost.value());
 
-        if (opt_->isCostBetterThan(motion->cost, bestCost_))  // motion->cost is better than the existing best
-            bestCost_ = motion->cost;
-        if (opt_->isCostBetterThan(worstCost_, motion->cost))  // motion->cost is worse than the existing worst
-            worstCost_ = motion->cost;
+        // if (opt_->isCostBetterThan(motion->cost, bestCost_))  // motion->cost is better than the existing best
+        //     bestCost_ = motion->cost;
+        // if (opt_->isCostBetterThan(worstCost_, motion->cost))  // motion->cost is worse than the existing worst
+        //     worstCost_ = motion->cost;
 
         OMPL_INFORM("+++ State added +++");
 
@@ -391,7 +394,7 @@ ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &pla
     return {solved, approximate};
 }
 
-void ompl::geometric::ClassicTRRT::getPlannerData(base::PlannerData &data) const
+void ompl::geometric::ContactTRRT::getPlannerData(base::PlannerData &data) const
 {
     Planner::getPlannerData(data);
 
@@ -411,13 +414,14 @@ void ompl::geometric::ClassicTRRT::getPlannerData(base::PlannerData &data) const
     }
 }
 
-bool ompl::geometric::ClassicTRRT::transitionTest(const Motion *parentMotion, double dist, const base::Cost &childCost)
+bool ompl::geometric::ContactTRRT::transitionTest(const Motion *parentMotion, const base::State *newState, double dist,
+                                                  const base::Cost &childCost)
 {
     // const base::State *parentState = parentMotion->state;
     base::Cost parentCost = parentMotion->cost;
     OMPL_INFORM("childCost.value(): %f", childCost.value());
     OMPL_INFORM("parentCost.value(): %f", parentCost.value());
-    // OMPL_INFORM("costThreshold_.value(): %f", costThreshold_.value());
+    OMPL_INFORM("costThreshold_.value(): %f", costThreshold_.value());
 
     // Disallow any cost that is not better than the cost threshold
     if (!opt_->isCostBetterThan(childCost, costThreshold_))
@@ -440,7 +444,7 @@ bool ompl::geometric::ClassicTRRT::transitionTest(const Motion *parentMotion, do
         return true;
     }
 
-    double dCost = childCost.value() - parentCost.value();
+    double dCost = parentCost.value() - childCost.value();
     OMPL_INFORM("dCost: %f", dCost);
     OMPL_INFORM("dist: %f", dist);
     double dCostDist = dCost / dist;
@@ -449,12 +453,10 @@ bool ompl::geometric::ClassicTRRT::transitionTest(const Motion *parentMotion, do
     OMPL_INFORM("temp_: %f", temp_);
     // OMPL_INFORM("K_: %f", K_);
 
-    double transitionProbability = exp(-1.0 * dCostDist / (temp_ * K_));
+    double transitionProbability = exp(dCostDist / (temp_ * K_));
     OMPL_INFORM("transitionProbability: %f", transitionProbability);
 
-    double randProb = (double)rand() / RAND_MAX;
-    OMPL_INFORM("randProb: %f", randProb);
-    if (transitionProbability > randProb)
+    if (transitionProbability > 0.5)
     {
         temp_ /= tempChangeFactor_;
         nFail_ = 0;
@@ -475,11 +477,118 @@ bool ompl::geometric::ClassicTRRT::transitionTest(const Motion *parentMotion, do
             OMPL_INFORM("nFail_: %d", nFail_);
         }
 
+        OMPL_INFORM("tempChangeFactor_: %f", tempChangeFactor_);
         return false;
     }
 }
 
-bool ompl::geometric::ClassicTRRT::minExpansionControl(double randMotionDistance)
+bool ompl::geometric::ContactTRRT::newTransitionTest(Motion *parentMotion, base::State *newState)
+{
+    base::State *nearState = parentMotion->state;
+    Eigen::VectorXd vfield = vf_(nearState);
+    const double lambdaScale = vfield.norm();
+    OMPL_INFORM("lambdaScale: %f", lambdaScale);
+    if (lambdaScale < std::numeric_limits<float>::epsilon())
+    {
+        return true;
+    }
+
+    // vfield.normalize();
+
+    Eigen::VectorXd vnew(vfdim_);
+    Eigen::VectorXd vnear(vfdim_);
+
+    for (std::size_t i = 0; i < vfdim_; i++)
+    {
+        vnew[i] = *si_->getStateSpace()->getValueAddressAtIndex(newState, i);
+        vnear[i] = *si_->getStateSpace()->getValueAddressAtIndex(nearState, i);
+    }
+
+    OMPL_INFORM("VNEW");
+    for (std::size_t i = 0; i < vfdim_; i++)
+    {
+        std::cout << vnew[i] << ", ";
+    }
+    std::cout << std::endl;
+
+    OMPL_INFORM("VNEAR");
+    for (std::size_t i = 0; i < vfdim_; i++)
+    {
+        std::cout << vnear[i] << ", ";
+    }
+    std::cout << std::endl;
+
+    OMPL_INFORM("VFIELD");
+    for (std::size_t i = 0; i < vfdim_; i++)
+    {
+        std::cout << vfield[i] << ", ";
+    }
+    std::cout << std::endl;
+
+    // vnew.normalize();
+    // vnear.normalize();
+
+    Eigen::VectorXd &vthresh = parentMotion->vthresh;
+    Eigen::VectorXd &vnumfail = parentMotion->vnumfail;
+
+    bool is_valid = true;
+    double prev_cost = 0;
+
+    for (std::size_t i = 0; i < vfdim_; i++)
+    {
+        Eigen::VectorXd subfield = vfield.head(i + 1);
+        Eigen::VectorXd subnew = vnew.head(i + 1);
+        double cost = subfield.norm() - subfield.dot(subnew) - prev_cost;
+        prev_cost = cost;
+
+        double &thresh = vthresh[i];
+        double &numfail = vnumfail[i];
+
+        OMPL_INFORM("subs size: %ld", subfield.size());
+        OMPL_INFORM("%ld cost: %f", i, cost);
+        OMPL_INFORM("%ld thresh: %f", i, thresh);
+        OMPL_INFORM("%ld numfail: %f", i, numfail);
+
+        double min_thresh = 0.05;
+        if (std::abs(cost) < thresh)
+        {
+            if (numfail > 0)
+            {
+                numfail = numfail - 0.5;
+            }
+            if (thresh > min_thresh)
+            {
+                thresh = thresh - 0.01;
+            }
+            continue;
+        }
+
+        double max_num_fail = 5.0;
+        if (numfail < max_num_fail)
+        {
+            numfail = numfail + 1.0;
+        }
+        else
+        {
+            thresh = thresh + 0.2;
+            numfail = 0;
+        }
+        is_valid = false;
+        break;
+    }
+
+    if (!is_valid)
+    {
+        OMPL_INFORM("State is not valid.");
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
+bool ompl::geometric::ContactTRRT::minExpansionControl(double randMotionDistance)
 {
     OMPL_INFORM("frontierThreshold_: %f", frontierThreshold_);
 

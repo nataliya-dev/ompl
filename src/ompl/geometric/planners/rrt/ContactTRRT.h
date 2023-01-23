@@ -34,8 +34,8 @@
 
 /* Author: Dave Coleman, Ryan Luna */
 
-#ifndef OMPL_GEOMETRIC_PLANNERS_RRT_CLASSICTRRT_
-#define OMPL_GEOMETRIC_PLANNERS_RRT_CLASSICTRRT_
+#ifndef OMPL_GEOMETRIC_PLANNERS_RRT_CONTACTTRRT_
+#define OMPL_GEOMETRIC_PLANNERS_RRT_CONTACTTRRT_
 
 #include <Eigen/Core>
 
@@ -82,15 +82,15 @@ namespace ompl
         */
 
         /** \brief Transition-based Rapidly-exploring Random Trees */
-        class ClassicTRRT : public base::Planner
+        class ContactTRRT : public base::Planner
         {
         public:
             using VectorField = std::function<Eigen::VectorXd(const base::State *)>;
 
             /** \brief Constructor */
-            ClassicTRRT(const base::SpaceInformationPtr &si);
+            ContactTRRT(const base::SpaceInformationPtr &si, VectorField vf);
 
-            ~ClassicTRRT() override;
+            ~ContactTRRT() override;
 
             void getPlannerData(base::PlannerData &data) const override;
 
@@ -232,8 +232,18 @@ namespace ompl
                 Motion() = default;
 
                 /** \brief Constructor that allocates memory for the state */
-                Motion(const base::SpaceInformationPtr &si) : state(si->allocState())
+                Motion(const base::SpaceInformationPtr &si)
+                  : state(si->allocState())
+                  , vfdim_(si->getStateSpace()->getValueLocations().size())
+                  , vthresh(vfdim_)
+                  , vnumfail(vfdim_)
                 {
+                    double min_thresh = 0.05;
+                    for (std::size_t i = 0; i < 7; i++)
+                    {
+                        vthresh[i] = min_thresh;
+                        vnumfail[i] = 0.0;
+                    }
                 }
 
                 ~Motion() = default;
@@ -243,6 +253,11 @@ namespace ompl
 
                 /** \brief The parent motion in the exploration tree */
                 Motion *parent{nullptr};
+
+                unsigned int vfdim_{0u};
+
+                Eigen::VectorXd vthresh;
+                Eigen::VectorXd vnumfail;
 
                 /** \brief Cost of the state */
                 base::Cost cost;
@@ -260,8 +275,9 @@ namespace ompl
             /** \brief Filter irrelevant configuration regarding the search of low-cost paths before inserting into tree
                 \param motionCost - cost of the motion to be evaluated
             */
-            bool transitionTest(const Motion *parentMotion, double dist, const base::Cost &childCost);
-
+            bool transitionTest(const Motion *parentMotion, const base::State *newState, double dist,
+                                const base::Cost &childCost);
+            bool newTransitionTest(Motion *parentMotion, base::State *newState);
             /** \brief Use ratio to prefer frontier nodes to nonfrontier ones */
             bool minExpansionControl(double randMotionDistance);
 
@@ -285,7 +301,7 @@ namespace ompl
             Motion *lastGoalMotion_{nullptr};
 
             // *********************************************************************************************************
-            // ClassicTRRT-Specific Variables
+            // ContactTRRT-Specific Variables
             // *********************************************************************************************************
 
             // Transtion Test -----------------------------------------------------------------------
@@ -320,6 +336,8 @@ namespace ompl
             /** Dimensionality of vector field */
             unsigned int vfdim_{0u};
 
+            const VectorField vf_;
+
             // Minimum Expansion Control --------------------------------------------------------------
 
             /** \brief The number of non-frontier nodes in the search tree */
@@ -334,7 +352,7 @@ namespace ompl
             /** \brief Target ratio of non-frontier nodes to frontier nodes. rho */
             double frontierNodeRatio_;
 
-            /** \brief The optimization objective being optimized by ClassicTRRT */
+            /** \brief The optimization objective being optimized by ContactTRRT */
             ompl::base::OptimizationObjectivePtr opt_;
         };
     }  // namespace geometric

@@ -36,29 +36,29 @@
 
 #include <utility>
 
-#include "ompl/geometric/planners/rrt/CVFRRT.h"
+#include "ompl/geometric/planners/rrt/ContactVFRRT.h"
 #include "ompl/base/goals/GoalSampleableRegion.h"
 
 namespace ompl
 {
     namespace magic
     {
-        /// Number of sampler to determine mean vector field norm in \ref gCVFRRT
-        static const unsigned int CVFRRT_MEAN_NORM_SAMPLES = 1000;
+        /// Number of sampler to determine mean vector field norm in \ref gContactVFRRT
+        static const unsigned int ContactVFRRT_MEAN_NORM_SAMPLES = 1000;
     }  // namespace magic
 }  // namespace ompl
 
-ompl::geometric::CVFRRT::CVFRRT(const base::SpaceInformationPtr &si, VectorField vf, double exploration,
+ompl::geometric::ContactVFRRT::ContactVFRRT(const base::SpaceInformationPtr &si, VectorField vf, double exploration,
                                 double initial_lambda, unsigned int update_freq)
   : RRT(si), vf_(std::move(vf)), explorationSetting_(exploration), lambda_(initial_lambda), nth_step_(update_freq)
 {
-    setName("CVFRRT");
+    setName("ContactVFRRT");
     maxDistance_ = si->getStateValidityCheckingResolution();
 }
 
-ompl::geometric::CVFRRT::~CVFRRT() = default;
+ompl::geometric::ContactVFRRT::~ContactVFRRT() = default;
 
-void ompl::geometric::CVFRRT::clear()
+void ompl::geometric::ContactVFRRT::clear()
 {
     RRT::clear();
     efficientCount_ = 0;
@@ -67,13 +67,13 @@ void ompl::geometric::CVFRRT::clear()
     step_ = 0;
 }
 
-void ompl::geometric::CVFRRT::setup()
+void ompl::geometric::ContactVFRRT::setup()
 {
     RRT::setup();
     vfdim_ = si_->getStateSpace()->getValueLocations().size();
 }
 
-Eigen::VectorXd ompl::geometric::CVFRRT::getNewDirection(const base::State *qnear, const base::State *qrand)
+Eigen::VectorXd ompl::geometric::ContactVFRRT::getNewDirection(const base::State *qnear, const base::State *qrand)
 {
     OMPL_INFORM("========== getNewDirection");
     // Set vrand to be the normalized vector from qnear to qrand
@@ -139,7 +139,7 @@ Eigen::VectorXd ompl::geometric::CVFRRT::getNewDirection(const base::State *qnea
     return vnew;
 }
 
-void ompl::geometric::CVFRRT::updateGain()
+void ompl::geometric::ContactVFRRT::updateGain()
 {
     if (step_ == nth_step_)
     {
@@ -159,7 +159,7 @@ void ompl::geometric::CVFRRT::updateGain()
         step_++;
 }
 
-ompl::geometric::CVFRRT::Motion *ompl::geometric::CVFRRT::extendTree(Motion *nmotion, base::State *rstate,
+ompl::geometric::ContactVFRRT::Motion *ompl::geometric::ContactVFRRT::extendTree(Motion *nmotion, base::State *rstate,
                                                                      const Eigen::VectorXd &v)
 {
     OMPL_INFORM("========== extendTree");
@@ -218,7 +218,7 @@ ompl::geometric::CVFRRT::Motion *ompl::geometric::CVFRRT::extendTree(Motion *nmo
     }
 }
 
-ompl::geometric::CVFRRT::Motion *ompl::geometric::CVFRRT::extendTreeRRT(Motion *nmotion, base::State *rstate)
+ompl::geometric::ContactVFRRT::Motion *ompl::geometric::ContactVFRRT::extendTreeRRT(Motion *nmotion, base::State *rstate)
 {
     OMPL_INFORM("========== extendTreeRRT");
     base::State *xstate = si_->allocState();
@@ -252,7 +252,7 @@ ompl::geometric::CVFRRT::Motion *ompl::geometric::CVFRRT::extendTreeRRT(Motion *
     }
 }
 
-void ompl::geometric::CVFRRT::updateExplorationEfficiency(Motion *m)
+void ompl::geometric::ContactVFRRT::updateExplorationEfficiency(Motion *m)
 {
     Motion *near = nn_->nearest(m);
     if (distanceFunction(m, near) < si_->getStateValidityCheckingResolution())
@@ -263,7 +263,7 @@ void ompl::geometric::CVFRRT::updateExplorationEfficiency(Motion *m)
     explorationInefficiency_ = inefficientCount_ / (double)(efficientCount_ + inefficientCount_);
 }
 
-ompl::base::PlannerStatus ompl::geometric::CVFRRT::solve(const base::PlannerTerminationCondition &ptc)
+ompl::base::PlannerStatus ompl::geometric::ContactVFRRT::solve(const base::PlannerTerminationCondition &ptc)
 {
     checkValidity();
     base::Goal *goal = pdef_->getGoal().get();

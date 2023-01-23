@@ -34,8 +34,8 @@
 
 /* Authors: Caleb Voss, Wilson Beebe */
 
-#ifndef OMPL_GEOMETRIC_PLANNERS_RRT_CVFRRT_
-#define OMPL_GEOMETRIC_PLANNERS_RRT_CVFRRT_
+#ifndef OMPL_GEOMETRIC_PLANNERS_RRT_CONTACTVFRRT_
+#define OMPL_GEOMETRIC_PLANNERS_RRT_CONTACTVFRRT_
 
 #include <limits>
 
@@ -48,9 +48,9 @@ namespace ompl
     namespace geometric
     {
         /**
-            \anchor gCVFRRT
+            \anchor gContactVFRRT
             \par Short description
-            Vector Field Rapidly-exploring Random Tree (CVFRRT) is a tree-based
+            Vector Field Rapidly-exploring Random Tree (ContactVFRRT) is a tree-based
             motion planner that tries to minimize the so-called upstream cost
             of a path. The upstream cost is defined by an integral over a
             user-defined vector field.
@@ -63,17 +63,17 @@ namespace ompl
             [[PDF]](http://robotics.snu.ac.kr/fcp/files/_pdf_files_publications/201411_Randomized%20path%20planning.pdf)
 
         */
-        class CVFRRT : public RRT
+        class ContactVFRRT : public RRT
         {
         public:
             using VectorField = std::function<Eigen::VectorXd(const base::State *)>;
 
             /** Constructor. */
-            CVFRRT(const base::SpaceInformationPtr &si, VectorField vf, double exploration, double initial_lambda,
-                   unsigned int update_freq);
+            ContactVFRRT(const base::SpaceInformationPtr &si, VectorField vf, double exploration, double initial_lambda,
+                         unsigned int update_freq);
 
             /** Destructor. */
-            ~CVFRRT() override;
+            ~ContactVFRRT() override;
 
             /** Reset internal data. */
             void clear() override;
