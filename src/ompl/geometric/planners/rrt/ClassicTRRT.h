@@ -42,6 +42,7 @@
 #include "ompl/geometric/planners/PlannerIncludes.h"
 #include "ompl/datastructures/NearestNeighbors.h"
 #include "ompl/base/OptimizationObjective.h"
+#include <fstream>
 
 /*
   NOTES:
@@ -262,6 +263,11 @@ namespace ompl
             */
             bool transitionTest(const Motion *parentMotion, double dist, const base::Cost &childCost);
 
+            bool simpleTransitionTest(const Motion *parentMotion, double dist, const base::Cost &childCost);
+            void setMinDistToGoal(double dist);
+            void saveData();
+            void initDataFile();
+
             /** \brief Use ratio to prefer frontier nodes to nonfrontier ones */
             bool minExpansionControl(double randMotionDistance);
 
@@ -316,6 +322,11 @@ namespace ompl
             int nFail_;
 
             int nFailMax_;
+
+            long int sampleNum_ = 0;
+
+            double minDistTGoal_ = 10000;
+            double distToGoal_ = 0;
 
             /** Dimensionality of vector field */
             unsigned int vfdim_{0u};

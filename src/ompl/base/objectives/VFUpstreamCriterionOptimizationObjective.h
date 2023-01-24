@@ -87,7 +87,6 @@ namespace ompl
                 qprime.normalize();
                 si_->getMotionStates(s1, s2, interp, numSegments - 1, true, true);
                 double cost = 0;
-                std::cout << "interp.size(): " << interp.size() << std::endl;
                 for (unsigned int i = 0; i < interp.size() - 1; i++)
                 {
                     Eigen::VectorXd f = vf_(interp[i]);

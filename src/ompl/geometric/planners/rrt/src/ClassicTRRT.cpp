@@ -141,6 +141,7 @@ void ompl::geometric::ClassicTRRT::setup()
     nonfrontierCount_ = 1;
     frontierCount_ = 1;  // init to 1 to prevent division by zero error
     bestCost_ = worstCost_ = opt_->identityCost();
+    initDataFile();
 }
 
 void ompl::geometric::ClassicTRRT::freeMemory()
@@ -280,6 +281,7 @@ ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &pla
             newState = randState;
 
         OMPL_INFORM("randMotionDistance: %f", randMotionDistance);
+        sampleNum_++;
 
         // IV.
         // this stage integrates collision detections in the presence of obstacles and checks for collisions
@@ -298,9 +300,17 @@ ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &pla
         if (!minExpansionControl(randMotionDistance))
             continue;  // give up on this one and try a new sample
 
-        // Only add this motion to the tree if the transition test accepts it
-        if (!transitionTest(nearMotion, randMotionDistance, childCost))
-            continue;  // give up on this one and try a new sample
+        // // Only add this motion to the tree if the transition test accepts it
+        // if (!transitionTest(nearMotion, randMotionDistance, childCost))
+        //     continue;  // give up on this one and try a new sample
+
+        bool is_valid = transitionTest(nearMotion, randMotionDistance, childCost);
+        if (!is_valid)
+        {
+            goal->isSatisfied(newState, &distToGoal_);
+            saveData();
+            continue;
+        }
 
         // V.
 
@@ -329,6 +339,9 @@ ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &pla
         // Check if this motion is the goal
         double distToGoal = 0.0;
         bool isSatisfied = goal->isSatisfied(motion->state, &distToGoal);
+        setMinDistToGoal(distToGoal);
+        saveData();
+
         if (isSatisfied)
         {
             approxDifference = distToGoal;  // the tolerated error distance btw state and goal
@@ -479,6 +492,68 @@ bool ompl::geometric::ClassicTRRT::transitionTest(const Motion *parentMotion, do
     }
 }
 
+bool ompl::geometric::ClassicTRRT::simpleTransitionTest(const Motion *parentMotion, double dist,
+                                                        const base::Cost &childCost)
+{
+    // const base::State *parentState = parentMotion->state;
+    base::Cost parentCost = parentMotion->cost;
+    OMPL_INFORM("childCost.value(): %f", childCost.value());
+    OMPL_INFORM("parentCost.value(): %f", parentCost.value());
+    // OMPL_INFORM("costThreshold_.value(): %f", costThreshold_.value());
+
+    // Disallow any cost that is not better than the cost threshold
+    if (!opt_->isCostBetterThan(childCost, costThreshold_))
+    {
+        OMPL_INFORM("Cost is above threshold.");
+        return false;
+    }
+
+    // always allow cost that is better than parent
+    if (opt_->isCostBetterThan(childCost, parentCost))
+    {
+        OMPL_INFORM("Motion cost is better than parent cost");
+        return true;
+    }
+
+    // Always accept if the cost is near or below zero
+    if (childCost.value() < 1e-4)
+    {
+        OMPL_INFORM("Cost is near or below zero.");
+        return true;
+    }
+
+    double dCost = childCost.value() - parentCost.value();
+    OMPL_INFORM("dCost: %f", dCost);
+    OMPL_INFORM("dist: %f", dist);
+    double dCostDist = dCost / dist;
+    OMPL_INFORM("dCostDist: %f", dCostDist);
+    OMPL_INFORM("temp_: %f", temp_);
+
+    if (temp_ > dCostDist)
+    {
+        temp_ /= tempChangeFactor_;
+        nFail_ = 0;
+        OMPL_INFORM("temp_ > dCostDist: %f", temp_);
+        return true;
+    }
+    else
+    {
+        if (nFail_ > nFailMax_)
+        {
+            temp_ *= tempChangeFactor_;
+            OMPL_INFORM("nFail > nFailMax_: temp_: %f", temp_);
+            nFail_ = 0;
+        }
+        else
+        {
+            nFail_++;
+            OMPL_INFORM("nFail_: %d", nFail_);
+        }
+
+        return false;
+    }
+}
+
 bool ompl::geometric::ClassicTRRT::minExpansionControl(double randMotionDistance)
 {
     // OMPL_INFORM("frontierThreshold_: %f", frontierThreshold_);
@@ -512,5 +587,59 @@ bool ompl::geometric::ClassicTRRT::minExpansionControl(double randMotionDistance
         OMPL_INFORM("nonfrontierCount_: %f", (double)nonfrontierCount_);
 
         return true;
+    }
+}
+
+void ompl::geometric::ClassicTRRT::setMinDistToGoal(double dist)
+{
+    if (dist < minDistTGoal_)
+    {
+        minDistTGoal_ = dist;
+    }
+}
+
+void ompl::geometric::ClassicTRRT::saveData()
+{
+    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/classicTRRT.csv", std::ios::out | std::ios::app);
+    if (file.is_open())
+    {
+        file << sampleNum_;
+        file << ",";
+        file << distToGoal_;
+        file << ",";
+        file << minDistTGoal_;
+        file << ",";
+        file << worstCost_.value();
+        file << ",";
+        file << temp_;
+        file << "\n";
+        file.close();
+    }
+    else
+    {
+        OMPL_ERROR("Unable to open file for writing.");
+    }
+}
+
+void ompl::geometric::ClassicTRRT::initDataFile()
+{
+    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/classicTRRT.csv", std::ios::out | std::ios::trunc);
+    if (file.is_open())
+    {
+        file << "sampleNumber";
+        file << ",";
+        file << "distToGoal";
+        file << ",";
+        file << "minDistToGoal";
+        file << ",";
+        file << "worstCost";
+        file << ",";
+        file << "temp";
+        file << "\n";
+        file.close();
+    }
+    else
+    {
+        OMPL_ERROR("Unable to open file for writing.");
     }
 }
