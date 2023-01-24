@@ -96,11 +96,11 @@ void ompl::geometric::ClassicTRRT::setup()
     initTemperature_ = 0.1;    // where the temperature starts out
     frontierNodeRatio_ = 0.1;  // 1/10, or 1 nonfrontier for every 10 frontier
 
-    maxDistance_ = 0.5;
-    frontierThreshold_ = 0.1;
+    maxDistance_ = 2.5;
+    frontierThreshold_ = 0.5;
     costThreshold_ = base::Cost(100.0);
-    tempChangeFactor_ = 2.0;
-    K_ = 0.5;
+    tempChangeFactor_ = 1.5;
+    K_ = 0.1;
     nFailMax_ = 10;
     nFail_ = 0;
 
@@ -449,16 +449,16 @@ bool ompl::geometric::ClassicTRRT::transitionTest(const Motion *parentMotion, do
     OMPL_INFORM("temp_: %f", temp_);
     // OMPL_INFORM("K_: %f", K_);
 
-    double transitionProbability = exp(-1.0 * dCostDist / (temp_ * K_));
-    OMPL_INFORM("transitionProbability: %f", transitionProbability);
+    double tranProb = exp(-1.0 * dCostDist / (temp_ * K_));
+    OMPL_INFORM("tranProb: %f", tranProb);
 
     double randProb = (double)rand() / RAND_MAX;
     OMPL_INFORM("randProb: %f", randProb);
-    if (transitionProbability > randProb)
+    if (tranProb > randProb)
     {
         temp_ /= tempChangeFactor_;
         nFail_ = 0;
-        OMPL_INFORM("transitionProbability: temp_: %f", temp_);
+        OMPL_INFORM("tranProb > randProb: temp_: %f", temp_);
         return true;
     }
     else
@@ -481,7 +481,7 @@ bool ompl::geometric::ClassicTRRT::transitionTest(const Motion *parentMotion, do
 
 bool ompl::geometric::ClassicTRRT::minExpansionControl(double randMotionDistance)
 {
-    OMPL_INFORM("frontierThreshold_: %f", frontierThreshold_);
+    // OMPL_INFORM("frontierThreshold_: %f", frontierThreshold_);
 
     if (randMotionDistance > frontierThreshold_)
     {
