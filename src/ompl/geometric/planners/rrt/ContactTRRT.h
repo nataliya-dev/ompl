@@ -42,6 +42,7 @@
 #include "ompl/geometric/planners/PlannerIncludes.h"
 #include "ompl/datastructures/NearestNeighbors.h"
 #include "ompl/base/OptimizationObjective.h"
+#include <fstream>
 
 /*
   NOTES:
@@ -59,27 +60,6 @@ namespace ompl
 {
     namespace geometric
     {
-        /**
-           @anchor gTRRT
-           @par Short description
-           T-RRT is an RRT variant and tree-based motion planner that takes into consideration state costs
-           to compute low-cost paths that follow valleys and saddle points of the configuration-space
-           costmap. It uses transition tests from stochastic optimization methods to accept or reject new
-           potential states.
-           @par Example usage
-           Please see [Dave Coleman's example](https://github.com/davetcoleman/ompl_rviz_viewer/) to see how TRRT can be
-           used.
-           @par External documentation
-           L. Jaillet, J. Cortés, T. Siméon, Sampling-Based Path Planning on Configuration-Space Costmaps, in <em>IEEE
-           TRANSACTIONS ON ROBOTICS, VOL. 26, NO. 4, AUGUST 2010</em>. DOI:
-           [10.1109/TRO.2010.2049527](http://dx.doi.org/10.1109/TRO.2010.2049527)<br />
-           [[PDF]](http://homepages.laas.fr/nic/Papers/10TRO.pdf)
-
-           D. Devaurs, T. Siméon, J. Cortés, Enhancing the Transition-based RRT to Deal with Complex Cost Spaces, in
-           <em>IEEE International Conference on Robotics and Automation, 2013, pp. 4120-4125. DOI:
-           [10.1109/ICRA.2013.6631158](http://dx.doi.org/10.1109/ICRA.2013.6631158)<br/>
-           [[PDF]](https://hal.archives-ouvertes.fr/hal-00872224/document)
-        */
 
         /** \brief Transition-based Rapidly-exploring Random Trees */
         class ContactTRRT : public base::Planner
@@ -275,11 +255,14 @@ namespace ompl
             /** \brief Filter irrelevant configuration regarding the search of low-cost paths before inserting into tree
                 \param motionCost - cost of the motion to be evaluated
             */
-            bool transitionTest(const Motion *parentMotion, const base::State *newState, double dist,
-                                const base::Cost &childCost);
-            bool newTransitionTest(Motion *parentMotion, base::State *newState);
+            bool perLinkTransitionTest perLinkTransitionTest(Motion *parentMotion, base::State *newState);
+
             /** \brief Use ratio to prefer frontier nodes to nonfrontier ones */
             bool minExpansionControl(double randMotionDistance);
+
+            void setMinDistToGoal(double dist);
+            void saveData();
+            void initDataFile();
 
             /** \brief State sampler */
             base::StateSamplerPtr sampler_;
@@ -332,6 +315,10 @@ namespace ompl
             int nFail_;
 
             int nFailMax_;
+
+            long int sampleNum_ = 0;
+            double minDistTGoal_ = 10000;
+            double distToGoal_ = 0;
 
             /** Dimensionality of vector field */
             unsigned int vfdim_{0u};
