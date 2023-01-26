@@ -50,16 +50,16 @@ ompl::geometric::ContactTRRT::ContactTRRT(const base::SpaceInformationPtr &si, V
 
     Planner::declareParam<double>("range", this, &ContactTRRT::setRange, &ContactTRRT::getRange, "0.:1.:10000.");
     Planner::declareParam<double>("goal_bias", this, &ContactTRRT::setGoalBias, &ContactTRRT::getGoalBias, "0.:.05:1.");
-    Planner::declareParam<double>("temp_change_factor", this, &ContactTRRT::setTempChangeFactor,
-                                  &ContactTRRT::getTempChangeFactor, "0.:.1:1.");
-    Planner::declareParam<double>("init_temperature", this, &ContactTRRT::setInitTemperature,
-                                  &ContactTRRT::getInitTemperature);
+    // Planner::declareParam<double>("temp_change_factor", this, &ContactTRRT::setTempChangeFactor,
+    //                               &ContactTRRT::getTempChangeFactor, "0.:.1:1.");
+    // Planner::declareParam<double>("init_temperature", this, &ContactTRRT::setInitTemperature,
+    //                               &ContactTRRT::getInitTemperature);
     Planner::declareParam<double>("frontier_threshold", this, &ContactTRRT::setFrontierThreshold,
                                   &ContactTRRT::getFrontierThreshold);
     Planner::declareParam<double>("frontier_node_ratio", this, &ContactTRRT::setFrontierNodeRatio,
                                   &ContactTRRT::getFrontierNodeRatio);
-    Planner::declareParam<double>("cost_threshold", this, &ContactTRRT::setCostThreshold,
-                                  &ContactTRRT::getCostThreshold);
+    // Planner::declareParam<double>("cost_threshold", this, &ContactTRRT::setCostThreshold,
+    //                               &ContactTRRT::getCostThreshold);
 }
 
 ompl::geometric::ContactTRRT::~ContactTRRT()
@@ -77,10 +77,8 @@ void ompl::geometric::ContactTRRT::clear()
     lastGoalMotion_ = nullptr;
 
     // Clear ContactTRRT specific variables ---------------------------------------------------------
-    temp_ = initTemperature_;
     nonfrontierCount_ = 1;
     frontierCount_ = 1;  // init to 1 to prevent division by zero error
-    nFail_ = 0;
     if (opt_)
         bestCost_ = worstCost_ = opt_->identityCost();
 }
@@ -91,19 +89,9 @@ void ompl::geometric::ContactTRRT::setup()
     tools::SelfConfig selfConfig(si_, getName());
 
     // ContactTRRT Specific Variables
-    // frontierThreshold_ = 0.0;  // set in setup()
-    setTempChangeFactor(0.1);  // how much to increase the temp each time
-    // costThreshold_ = base::Cost(std::numeric_limits<double>::infinity());
-    initTemperature_ = 1;      // where the temperature starts out
     frontierNodeRatio_ = 0.1;  // 1/10, or 1 nonfrontier for every 10 frontier
-
     maxDistance_ = 0.5;
     frontierThreshold_ = 0.1;
-    costThreshold_ = base::Cost(100.0);
-    tempChangeFactor_ = 1.1;
-    K_ = 1.0;
-    nFailMax_ = 10;
-    nFail_ = 0;
 
     vfdim_ = si_->getStateSpace()->getValueLocations().size();
 
@@ -138,10 +126,10 @@ void ompl::geometric::ContactTRRT::setup()
     nearestNeighbors_->setDistanceFunction([this](const Motion *a, const Motion *b) { return distanceFunction(a, b); });
 
     // Setup ContactTRRT specific variables ---------------------------------------------------------
-    temp_ = initTemperature_;
     nonfrontierCount_ = 1;
     frontierCount_ = 1;  // init to 1 to prevent division by zero error
     bestCost_ = worstCost_ = opt_->identityCost();
+    initDataFile();
 }
 
 void ompl::geometric::ContactTRRT::freeMemory()
@@ -295,12 +283,15 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         // base::Cost childCost = opt_->stateCost(newState);
         base::Cost childCost = opt_->motionCost(nearMotion->state, newState);
 
-        // Only add this motion to the tree if the transition test accepts it
         bool is_valid = perLinkTransitionTest(nearMotion, newState);
+        // bool is_valid = perLinkTransitionTestSimple(nearMotion, newState);
+        // bool is_valid = perBranchTransitionTest(nearMotion, randMotionDistance, childCost);
         if (!is_valid)
         {
             goal->isSatisfied(newState, &distToGoal_);
             saveData();
+            temp_ = nearMotion->temp_;
+            setMaxTemp(temp_);
             continue;
         }
         // Minimum Expansion Control
@@ -319,6 +310,9 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
 
         motion->vthresh = nearMotion->vthresh;
         motion->vnumfail = nearMotion->vnumfail;
+
+        motion->nFail_ = nearMotion->nFail_;
+        motion->temp_ = nearMotion->temp_;
 
         // Add motion to data structure
         nearestNeighbors_->add(motion);
@@ -340,6 +334,7 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         double distToGoal = 0.0;
         bool isSatisfied = goal->isSatisfied(motion->state, &distToGoal);
         setMinDistToGoal(distToGoal);
+        setMaxTemp(temp_);
         saveData();
         if (isSatisfied)
         {
@@ -423,7 +418,76 @@ void ompl::geometric::ContactTRRT::getPlannerData(base::PlannerData &data) const
     }
 }
 
-bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, base::State *newState)
+bool ompl::geometric::ContactTRRT::perBranchTransitionTest(Motion *parentMotion, double dist,
+                                                           const base::Cost &childCost)
+{
+    // const base::State *parentState = parentMotion->state;
+    base::Cost parentCost = parentMotion->cost;
+    OMPL_INFORM("childCost.value(): %f", childCost.value());
+    OMPL_INFORM("parentCost.value(): %f", parentCost.value());
+    // OMPL_INFORM("costThreshold_.value(): %f", costThreshold_.value());
+
+    // Disallow any cost that is not better than the cost threshold
+    // if (!opt_->isCostBetterThan(childCost, costThreshold_))
+    // {
+    //     OMPL_INFORM("Cost is above threshold.");
+    //     return false;
+    // }
+
+    // always allow cost that is better than parent
+    if (opt_->isCostBetterThan(childCost, parentCost))
+    {
+        OMPL_INFORM("Motion cost is better than parent cost");
+        return true;
+    }
+
+    // Always accept if the cost is near or below zero
+    if (childCost.value() < 1e-4)
+    {
+        OMPL_INFORM("Cost is near or below zero.");
+        return true;
+    }
+
+    double dCost = childCost.value() - parentCost.value();
+    OMPL_INFORM("dCost: %f", dCost);
+    OMPL_INFORM("dist: %f", dist);
+    double dCostDist = dCost / dist;
+    OMPL_INFORM("dCostDist: %f", dCostDist);
+
+    OMPL_INFORM("temp_: %f", parentMotion->temp_);
+    // OMPL_INFORM("K_: %f", K_);
+
+    double tranProb = exp(-1.0 * dCostDist / (parentMotion->temp_ * parentMotion->K_));
+    OMPL_INFORM("tranProb: %f", tranProb);
+
+    double randProb = (double)rand() / RAND_MAX;
+    OMPL_INFORM("randProb: %f", randProb);
+    if (tranProb > randProb)
+    {
+        parentMotion->temp_ /= parentMotion->tempChangeFactor_;
+        parentMotion->nFail_ = 0;
+        OMPL_INFORM("tranProb > randProb: temp_: %f", parentMotion->temp_);
+        return true;
+    }
+    else
+    {
+        if (parentMotion->nFail_ > parentMotion->nFailMax_)
+        {
+            parentMotion->temp_ *= parentMotion->tempChangeFactor_;
+            OMPL_INFORM("nFail > nFailMax_: temp_: %f", parentMotion->temp_);
+            parentMotion->nFail_ = 0;
+        }
+        else
+        {
+            parentMotion->nFail_++;
+            OMPL_INFORM("nFail_: %d", parentMotion->nFail_);
+        }
+
+        return false;
+    }
+}
+
+bool ompl::geometric::ContactTRRT::perLinkTransitionTestSimple(Motion *parentMotion, base::State *newState)
 {
     base::State *nearState = parentMotion->state;
     Eigen::VectorXd vfield = vf_(nearState);
@@ -511,11 +575,122 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, b
         }
         else
         {
-            thresh = thresh + 0.1;
+            thresh = thresh + 0.2;
             numfail = 0;
         }
         is_valid = false;
-        break;
+        // break;
+    }
+
+    if (!is_valid)
+    {
+        OMPL_INFORM("State is not valid.");
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
+bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, base::State *newState)
+{
+    base::State *nearState = parentMotion->state;
+    Eigen::VectorXd vfield = vf_(nearState);
+    const double lambdaScale = vfield.norm();
+    OMPL_INFORM("lambdaScale: %f", lambdaScale);
+    if (lambdaScale < std::numeric_limits<float>::epsilon())
+    {
+        return true;
+    }
+
+    // vfield.normalize();
+
+    Eigen::VectorXd vnew(vfdim_);
+    Eigen::VectorXd vnear(vfdim_);
+
+    for (std::size_t i = 0; i < vfdim_; i++)
+    {
+        vnew[i] = *si_->getStateSpace()->getValueAddressAtIndex(newState, i);
+        vnear[i] = *si_->getStateSpace()->getValueAddressAtIndex(nearState, i);
+    }
+
+    // OMPL_INFORM("VNEW");
+    // for (std::size_t i = 0; i < vfdim_; i++)
+    // {
+    //     std::cout << vnew[i] << ", ";
+    // }
+    // std::cout << std::endl;
+
+    // OMPL_INFORM("VNEAR");
+    // for (std::size_t i = 0; i < vfdim_; i++)
+    // {
+    //     std::cout << vnear[i] << ", ";
+    // }
+    // std::cout << std::endl;
+
+    // OMPL_INFORM("VFIELD");
+    // for (std::size_t i = 0; i < vfdim_; i++)
+    // {
+    //     std::cout << vfield[i] << ", ";
+    // }
+    // std::cout << std::endl;
+
+    // vnew.normalize();
+    // vnear.normalize();
+
+    Eigen::VectorXd &vtemp = parentMotion->vtemp;
+    Eigen::VectorXd &vnumfail = parentMotion->vnumfail;
+
+    bool is_valid = true;
+    double prev_cost = 0;
+
+    for (std::size_t i = 0; i < vfdim_; i++)
+    {
+        Eigen::VectorXd subfield = vfield.head(i + 1);
+        Eigen::VectorXd subnew = vnew.head(i + 1);
+        double cost = subfield.norm() - subfield.dot(subnew) - prev_cost;
+        prev_cost = cost;
+
+        double &temp = vtemp[i];
+        double &numfail = vnumfail[i];
+
+        OMPL_INFORM("subs size: %ld", subfield.size());
+        OMPL_INFORM("%ld cost: %f", i, cost);
+        OMPL_INFORM("%ld temp: %f", i, temp);
+        OMPL_INFORM("%ld numfail: %f", i, numfail);
+
+        double tranProb = exp(-1.0 * std::abs(cost) / (temp * parentMotion->K_));
+        OMPL_INFORM("tranProb: %f", tranProb);
+
+        double randProb = (double)rand() / RAND_MAX;
+        OMPL_INFORM("randProb: %f", randProb);
+
+        if (tranProb > 0.5)
+        {
+            temp /= 1.1;
+            OMPL_INFORM("tranProb > randProb: %f", temp);
+
+            numfail = 0;
+            continue;
+        }
+        else
+        {
+            if (numfail > parentMotion->nFailMax_)
+            {
+                temp *= parentMotion->tempChangeFactor_;
+                OMPL_INFORM("nFail > nFailMax_: temp: %f", temp);
+                parentMotion->nFail_ = 0;
+            }
+            else
+            {
+                numfail++;
+                OMPL_INFORM("numfail: %d", numfail);
+            }
+            is_valid = false;
+        }
+
+        // break;
     }
 
     if (!is_valid)
@@ -573,9 +748,17 @@ void ompl::geometric::ContactTRRT::setMinDistToGoal(double dist)
     }
 }
 
+void ompl::geometric::ContactTRRT::setMaxTemp(double temp)
+{
+    if (temp > maxTemp_)
+    {
+        maxTemp_ = temp;
+    }
+}
+
 void ompl::geometric::ContactTRRT::saveData()
 {
-    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::app);
+    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::app);
     if (file.is_open())
     {
         file << sampleNum_;
@@ -587,6 +770,8 @@ void ompl::geometric::ContactTRRT::saveData()
         file << worstCost_.value();
         file << ",";
         file << temp_;
+        file << ",";
+        file << maxTemp_;
         file << "\n";
         file.close();
     }
@@ -598,7 +783,7 @@ void ompl::geometric::ContactTRRT::saveData()
 
 void ompl::geometric::ContactTRRT::initDataFile()
 {
-    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::trunc);
+    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::trunc);
     if (file.is_open())
     {
         file << "sampleNumber";
@@ -610,6 +795,8 @@ void ompl::geometric::ContactTRRT::initDataFile()
         file << "worstCost";
         file << ",";
         file << "temp";
+        file << ",";
+        file << "maxTemp";
         file << "\n";
         file.close();
     }

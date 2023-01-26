@@ -114,52 +114,6 @@ namespace ompl
                 return maxDistance_;
             }
 
-            /** \brief Set the factor by which the temperature is increased
-                after a failed transition test.  This value should be in the
-                range (0, 1], typically close to zero (default is 0.1).
-                This value is an exponential (e^factor) that is multiplied with
-                the current temperature. */
-            void setTempChangeFactor(double factor)
-            {
-                tempChangeFactor_ = exp(factor);
-            }
-
-            /** \brief Get the factor by which the temperature rises based on current acceptance/rejection rate */
-            double getTempChangeFactor() const
-            {
-                return log(tempChangeFactor_);
-            }
-
-            /** \brief Set the cost threshold (default is infinity).
-                Any motion cost that is not better than this cost (according to
-                the optimization objective) will not be expanded by the planner. */
-            void setCostThreshold(double maxCost)
-            {
-                costThreshold_ = base::Cost(maxCost);
-            }
-
-            /** \brief Get the cost threshold (default is infinity).
-                 Any motion cost that is not better than this cost (according to
-                 the optimization objective) will not be expanded by the planner. */
-            double getCostThreshold() const
-            {
-                return costThreshold_.value();
-            }
-
-            /** \brief Set the initial temperature at the beginning of the algorithm. Should be high
-                       to allow for initial exploration. */
-            void setInitTemperature(double initTemperature)
-            {
-                initTemperature_ = initTemperature;
-                temp_ = initTemperature_;
-            }
-
-            /** \brief Get the temperature at the start of planning. */
-            double getInitTemperature() const
-            {
-                return initTemperature_;
-            }
-
             /** \brief Set the distance between a new state and the nearest neighbor
                 that qualifies that state as being a frontier */
             void setFrontierThreshold(double frontier_threshold)
@@ -217,13 +171,19 @@ namespace ompl
                   , vfdim_(si->getStateSpace()->getValueLocations().size())
                   , vthresh(vfdim_)
                   , vnumfail(vfdim_)
+                  , vtemp(vfdim_)
                 {
                     double min_thresh = 0.05;
                     for (std::size_t i = 0; i < 7; i++)
                     {
                         vthresh[i] = min_thresh;
                         vnumfail[i] = 0.0;
+                        vtemp[i] = initTemperature_;
                     }
+
+                    temp_ = initTemperature_;
+                    costThreshold_ = base::Cost(100.0);
+                    tempChangeFactor_ = 1.5;
                 }
 
                 ~Motion() = default;
@@ -238,9 +198,63 @@ namespace ompl
 
                 Eigen::VectorXd vthresh;
                 Eigen::VectorXd vnumfail;
+                Eigen::VectorXd vtemp;
 
-                /** \brief Cost of the state */
                 base::Cost cost;
+                int nFail_ = 0;
+                double temp_;
+
+                double initTemperature_ = 0.1;
+                int nFailMax_ = 10;
+                double K_ = 1.0;
+                base::Cost costThreshold_;
+                double tempChangeFactor_;
+
+                /** \brief Set the factor by which the temperature is increased
+                    after a failed transition test.  This value should be in the
+                    range (0, 1], typically close to zero (default is 0.1).
+                    This value is an exponential (e^factor) that is multiplied with
+                    the current temperature. */
+                void setTempChangeFactor(double factor)
+                {
+                    tempChangeFactor_ = exp(factor);
+                }
+
+                /** \brief Get the factor by which the temperature rises based on current acceptance/rejection rate */
+                double getTempChangeFactor() const
+                {
+                    return log(tempChangeFactor_);
+                }
+
+                /** \brief Set the cost threshold (default is infinity).
+                    Any motion cost that is not better than this cost (according to
+                    the optimization objective) will not be expanded by the planner. */
+                void setCostThreshold(double maxCost)
+                {
+                    costThreshold_ = base::Cost(maxCost);
+                }
+
+                /** \brief Get the cost threshold (default is infinity).
+                     Any motion cost that is not better than this cost (according to
+                     the optimization objective) will not be expanded by the planner. */
+                double getCostThreshold() const
+                {
+                    return costThreshold_.value();
+                }
+
+                /** \brief Set the initial temperature at the beginning of the algorithm. Should be high
+                           to allow for initial exploration. */
+                void setInitTemperature(double initTemperature)
+                {
+                    initTemperature_ = initTemperature;
+                    temp_ = initTemperature_;
+                }
+
+                /** \brief Get the temperature at the start of planning. */
+                double getInitTemperature() const
+                {
+                    return initTemperature_;
+                }
             };
 
             /** \brief Free the memory allocated by this planner */
@@ -255,14 +269,16 @@ namespace ompl
             /** \brief Filter irrelevant configuration regarding the search of low-cost paths before inserting into tree
                 \param motionCost - cost of the motion to be evaluated
             */
-            bool perLinkTransitionTest perLinkTransitionTest(Motion *parentMotion, base::State *newState);
-
+            bool perLinkTransitionTestSimple(Motion *parentMotion, base::State *newState);
+            bool perLinkTransitionTest(Motion *parentMotion, base::State *newState);
+            bool perBranchTransitionTest(Motion *parentMotion, double dist, const base::Cost &childCost);
             /** \brief Use ratio to prefer frontier nodes to nonfrontier ones */
             bool minExpansionControl(double randMotionDistance);
 
             void setMinDistToGoal(double dist);
             void saveData();
             void initDataFile();
+            void setMaxTemp(double temp);
 
             /** \brief State sampler */
             base::StateSamplerPtr sampler_;
@@ -289,36 +305,17 @@ namespace ompl
 
             // Transtion Test -----------------------------------------------------------------------
 
-            /** \brief Temperature parameter used to control the difficulty level of transition tests. Low temperatures
-                limit the expansion to a slightly positive slopes, high temps enable to climb the steeper slopes.
-                Dynamically tuned according to the information acquired during exploration */
-            double temp_;
-
-            double K_{1.0};
-
             /** \brief The most desirable (e.g., minimum) cost value in the search tree */
             base::Cost bestCost_;
 
             /** \brief The least desirable (e.g., maximum) cost value in the search tree */
             base::Cost worstCost_;
 
-            /** \brief All motion costs must be better than this cost (default is infinity) */
-            base::Cost costThreshold_;
-
-            /** \brief The value of the expression exp^T_rate.  The temperature
-                 is increased by this factor whenever the transition test fails. */
-            double tempChangeFactor_;
-
-            /** \brief The initial value of \e temp_ */
-            double initTemperature_;
-
-            int nFail_;
-
-            int nFailMax_;
-
             long int sampleNum_ = 0;
-            double minDistTGoal_ = 10000;
-            double distToGoal_ = 0;
+            double minDistTGoal_ = 10000.0;
+            double distToGoal_ = 0.0;
+            double temp_ = 0.1;
+            double maxTemp_ = -1.0;
 
             /** Dimensionality of vector field */
             unsigned int vfdim_{0u};

@@ -262,6 +262,7 @@ namespace ompl
             void setMinDistToGoal(double dist);
             void saveData();
             void initDataFile();
+            void setMaxTemp(double temp);
 
             /** \brief Use ratio to prefer frontier nodes to nonfrontier ones */
             bool minExpansionControl(double randMotionDistance);
@@ -319,8 +320,9 @@ namespace ompl
             int nFailMax_;
 
             long int sampleNum_ = 0;
-            double minDistTGoal_ = 10000;
-            double distToGoal_ = 0;
+            double minDistTGoal_ = 10000.0;
+            double distToGoal_ = 0.0;
+            double maxTemp_ = 10000.0;
 
             /** Dimensionality of vector field */
             unsigned int vfdim_{0u};

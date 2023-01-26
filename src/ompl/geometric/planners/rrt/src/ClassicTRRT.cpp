@@ -96,11 +96,11 @@ void ompl::geometric::ClassicTRRT::setup()
     initTemperature_ = 0.1;    // where the temperature starts out
     frontierNodeRatio_ = 0.1;  // 1/10, or 1 nonfrontier for every 10 frontier
 
-    maxDistance_ = 2.5;
-    frontierThreshold_ = 0.5;
+    maxDistance_ = 0.5;
+    frontierThreshold_ = 0.1;
     costThreshold_ = base::Cost(100.0);
     tempChangeFactor_ = 1.5;
-    K_ = 0.1;
+    K_ = 1.0;
     nFailMax_ = 10;
     nFail_ = 0;
 
@@ -308,6 +308,7 @@ ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &pla
         if (!is_valid)
         {
             goal->isSatisfied(newState, &distToGoal_);
+            setMaxTemp(temp_);
             saveData();
             continue;
         }
@@ -340,6 +341,7 @@ ompl::geometric::ClassicTRRT::solve(const base::PlannerTerminationCondition &pla
         double distToGoal = 0.0;
         bool isSatisfied = goal->isSatisfied(motion->state, &distToGoal);
         setMinDistToGoal(distToGoal);
+        setMaxTemp(temp_);
         saveData();
 
         if (isSatisfied)
@@ -433,11 +435,11 @@ bool ompl::geometric::ClassicTRRT::transitionTest(const Motion *parentMotion, do
     // OMPL_INFORM("costThreshold_.value(): %f", costThreshold_.value());
 
     // Disallow any cost that is not better than the cost threshold
-    if (!opt_->isCostBetterThan(childCost, costThreshold_))
-    {
-        OMPL_INFORM("Cost is above threshold.");
-        return false;
-    }
+    // if (!opt_->isCostBetterThan(childCost, costThreshold_))
+    // {
+    //     OMPL_INFORM("Cost is above threshold.");
+    //     return false;
+    // }
 
     // always allow cost that is better than parent
     if (opt_->isCostBetterThan(childCost, parentCost))
@@ -598,6 +600,14 @@ void ompl::geometric::ClassicTRRT::setMinDistToGoal(double dist)
     }
 }
 
+void ompl::geometric::ClassicTRRT::setMaxTemp(double temp)
+{
+    if (temp > maxTemp_)
+    {
+        maxTemp_ = temp;
+    }
+}
+
 void ompl::geometric::ClassicTRRT::saveData()
 {
     std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/classicTRRT.csv", std::ios::out | std::ios::app);
@@ -612,6 +622,8 @@ void ompl::geometric::ClassicTRRT::saveData()
         file << worstCost_.value();
         file << ",";
         file << temp_;
+        file << ",";
+        file << maxTemp_;
         file << "\n";
         file.close();
     }
@@ -635,6 +647,8 @@ void ompl::geometric::ClassicTRRT::initDataFile()
         file << "worstCost";
         file << ",";
         file << "temp";
+        file << ",";
+        file << "maxTemp";
         file << "\n";
         file.close();
     }
