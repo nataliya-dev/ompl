@@ -610,7 +610,7 @@ void ompl::geometric::ClassicTRRT::setMaxTemp(double temp)
 
 void ompl::geometric::ClassicTRRT::saveData()
 {
-    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/classicTRRT.csv", std::ios::out | std::ios::app);
+    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/classicTRRT.csv", std::ios::out | std::ios::app);
     if (file.is_open())
     {
         file << sampleNum_;
@@ -635,7 +635,7 @@ void ompl::geometric::ClassicTRRT::saveData()
 
 void ompl::geometric::ClassicTRRT::initDataFile()
 {
-    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/classicTRRT.csv", std::ios::out | std::ios::trunc);
+    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/classicTRRT.csv", std::ios::out | std::ios::trunc);
     if (file.is_open())
     {
         file << "sampleNumber";

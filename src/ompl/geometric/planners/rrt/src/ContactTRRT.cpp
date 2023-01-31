@@ -90,7 +90,7 @@ void ompl::geometric::ContactTRRT::setup()
 
     // ContactTRRT Specific Variables
     frontierNodeRatio_ = 0.1;  // 1/10, or 1 nonfrontier for every 10 frontier
-    maxDistance_ = 0.5;
+    maxDistance_ = 2.5;
     frontierThreshold_ = 0.1;
 
     vfdim_ = si_->getStateSpace()->getValueLocations().size();
@@ -218,6 +218,9 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
     // The chosen state btw rand_state and interpolated_state
     base::State *newState;
 
+    std::size_t num_goal_samples = 0;
+    std::size_t num_uniform_samples = 0;
+
     // Begin sampling --------------------------------------------------------------------------------------
     while (plannerTerminationCondition() == false)
     {
@@ -229,12 +232,17 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         {
             // Bias sample towards goal
             goalRegion->sampleGoal(randState);
+            num_goal_samples++;
         }
         else
         {
             // Uniformly Sample
             sampler_->sampleUniform(randState);
+            num_uniform_samples++;
         }
+
+        OMPL_INFORM("num_goal_samples %u: ", num_goal_samples);
+        OMPL_INFORM("num_uniform_samples %u: ", num_uniform_samples);
 
         // II.
 
@@ -246,7 +254,7 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         // Distance from near state q_n to a random state
         randMotionDistance = si_->distance(nearMotion->state, randState);
 
-        // OMPL_INFORM("randMotionDistance: %f", randMotionDistance);
+        OMPL_INFORM("randMotionDistance: %f", randMotionDistance);
         // OMPL_INFORM("maxDistance_: %f", maxDistance_);
 
         // Check if the rand_state is too far away
@@ -281,7 +289,8 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         }
 
         // base::Cost childCost = opt_->stateCost(newState);
-        base::Cost childCost = opt_->motionCost(nearMotion->state, newState);
+        // base::Cost childCost = opt_->motionCost(nearMotion->state, newState);
+        // OMPL_INFORM("childCost.value(): %f", childCost.value());
 
         bool is_valid = perLinkTransitionTest(nearMotion, newState);
         // bool is_valid = perLinkTransitionTestSimple(nearMotion, newState);
@@ -306,10 +315,11 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         auto *motion = new Motion(si_);
         si_->copyState(motion->state, newState);
         motion->parent = nearMotion;  // link q_new to q_near as an edge
-        motion->cost = childCost;
+        // motion->cost = childCost;
 
         motion->vthresh = nearMotion->vthresh;
         motion->vnumfail = nearMotion->vnumfail;
+        motion->vtemp = nearMotion->vtemp;
 
         motion->nFail_ = nearMotion->nFail_;
         motion->temp_ = nearMotion->temp_;
@@ -655,7 +665,7 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, b
         double &temp = vtemp[i];
         double &numfail = vnumfail[i];
 
-        OMPL_INFORM("subs size: %ld", subfield.size());
+        // OMPL_INFORM("subs size: %ld", subfield.size());
         OMPL_INFORM("%ld cost: %f", i, cost);
         OMPL_INFORM("%ld temp: %f", i, temp);
         OMPL_INFORM("%ld numfail: %f", i, numfail);
@@ -758,7 +768,7 @@ void ompl::geometric::ContactTRRT::setMaxTemp(double temp)
 
 void ompl::geometric::ContactTRRT::saveData()
 {
-    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::app);
+    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::app);
     if (file.is_open())
     {
         file << sampleNum_;
@@ -783,7 +793,7 @@ void ompl::geometric::ContactTRRT::saveData()
 
 void ompl::geometric::ContactTRRT::initDataFile()
 {
-    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::trunc);
+    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::trunc);
     if (file.is_open())
     {
         file << "sampleNumber";

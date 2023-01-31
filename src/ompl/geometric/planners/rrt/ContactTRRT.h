@@ -205,7 +205,7 @@ namespace ompl
                 double temp_;
 
                 double initTemperature_ = 0.1;
-                int nFailMax_ = 10;
+                int nFailMax_ = 5;
                 double K_ = 1.0;
                 base::Cost costThreshold_;
                 double tempChangeFactor_;
