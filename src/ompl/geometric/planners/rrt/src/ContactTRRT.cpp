@@ -90,7 +90,7 @@ void ompl::geometric::ContactTRRT::setup()
 
     // ContactTRRT Specific Variables
     frontierNodeRatio_ = 0.1;  // 1/10, or 1 nonfrontier for every 10 frontier
-    maxDistance_ = 2.5;
+    maxDistance_ = 0.5;
     frontierThreshold_ = 0.1;
 
     vfdim_ = si_->getStateSpace()->getValueLocations().size();
@@ -625,6 +625,8 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, b
         vnear[i] = *si_->getStateSpace()->getValueAddressAtIndex(nearState, i);
     }
 
+    Eigen::VectorXd vdiff(vnew - vnear);
+
     // OMPL_INFORM("VNEW");
     // for (std::size_t i = 0; i < vfdim_; i++)
     // {
@@ -646,9 +648,6 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, b
     // }
     // std::cout << std::endl;
 
-    // vnew.normalize();
-    // vnear.normalize();
-
     Eigen::VectorXd &vtemp = parentMotion->vtemp;
     Eigen::VectorXd &vnumfail = parentMotion->vnumfail;
 
@@ -658,23 +657,24 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, b
     for (std::size_t i = 0; i < vfdim_; i++)
     {
         Eigen::VectorXd subfield = vfield.head(i + 1);
-        Eigen::VectorXd subnew = vnew.head(i + 1);
-        double cost = subfield.norm() - subfield.dot(subnew) - prev_cost;
-        prev_cost = cost;
+        Eigen::VectorXd subnew = vdiff.head(i + 1);
+        double cost = subfield.squaredNorm() - subfield.dot(subnew) - prev_cost;
+        prev_cost += std::abs(cost);
 
         double &temp = vtemp[i];
         double &numfail = vnumfail[i];
 
         // OMPL_INFORM("subs size: %ld", subfield.size());
         OMPL_INFORM("%ld cost: %f", i, cost);
+        OMPL_INFORM("%ld prev_cost: %f", i, prev_cost);
         OMPL_INFORM("%ld temp: %f", i, temp);
         OMPL_INFORM("%ld numfail: %f", i, numfail);
 
         double tranProb = exp(-1.0 * std::abs(cost) / (temp * parentMotion->K_));
         OMPL_INFORM("tranProb: %f", tranProb);
 
-        double randProb = (double)rand() / RAND_MAX;
-        OMPL_INFORM("randProb: %f", randProb);
+        // double randProb = (double)rand() / RAND_MAX;
+        // OMPL_INFORM("randProb: %f", randProb);
 
         if (tranProb > 0.5)
         {
