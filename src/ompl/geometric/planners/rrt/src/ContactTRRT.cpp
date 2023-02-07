@@ -557,6 +557,8 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, b
         double cost = subfield.squaredNorm() - subfield.dot(subnew) - prev_cost;
         prev_cost += std::abs(cost);
 
+        // double cost = vfield[i];
+
         double &temp = vtemp[i];
         double &numfail = vnumfail[i];
 
@@ -575,7 +577,7 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, b
 
         if (tranProb > 0.5)
         {
-            temp /= 1.1;
+            temp /= 1.08;
             OMPL_INFORM("tranProb > randProb: %f", temp);
 
             numfail = 0;
@@ -583,21 +585,20 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, b
         }
         else
         {
-            if (numfail > parentMotion->nFailMax_)
-            {
-                temp *= parentMotion->tempChangeFactor_;
-                OMPL_INFORM("nFail > nFailMax_: temp: %f", temp);
-                parentMotion->nFail_ = 0;
-            }
-            else
-            {
-                numfail++;
-                OMPL_INFORM("numfail: %d", numfail);
-            }
+            temp *= 1.1;
+            // if (numfail > parentMotion->nFailMax_)
+            // {
+            //     OMPL_INFORM("nFail > nFailMax_: temp: %f", temp);
+            //     parentMotion->nFail_ = 0;
+            // }
+            // else
+            // {
+            //     numfail++;
+            //     OMPL_INFORM("numfail: %d", numfail);
+            // }
             is_valid = false;
+            break;
         }
-
-        // break;
     }
 
     if (!is_valid)
@@ -665,7 +666,7 @@ void ompl::geometric::ContactTRRT::setMaxTemp(double temp)
 
 void ompl::geometric::ContactTRRT::saveData()
 {
-    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::app);
+    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::app);
     if (file.is_open())
     {
         file << sampleNum_;
@@ -690,7 +691,7 @@ void ompl::geometric::ContactTRRT::saveData()
 
 void ompl::geometric::ContactTRRT::initDataFile()
 {
-    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::trunc);
+    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::trunc);
     if (file.is_open())
     {
         file << "sampleNumber";

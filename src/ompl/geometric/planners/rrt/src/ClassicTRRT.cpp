@@ -99,7 +99,7 @@ void ompl::geometric::ClassicTRRT::setup()
     maxDistance_ = 0.5;
     frontierThreshold_ = 0.1;
     costThreshold_ = base::Cost(100.0);
-    tempChangeFactor_ = 1.5;
+    tempChangeFactor_ = 2.0;
     K_ = 1.0;
     nFailMax_ = 10;
     nFail_ = 0;
