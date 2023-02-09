@@ -254,7 +254,7 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         // Distance from near state q_n to a random state
         randMotionDistance = si_->distance(nearMotion->state, randState);
 
-        OMPL_INFORM("randMotionDistance: %f", randMotionDistance);
+        // OMPL_INFORM("randMotionDistance: %f", randMotionDistance);
         // OMPL_INFORM("maxDistance_: %f", maxDistance_);
 
         // Check if the rand_state is too far away
@@ -277,7 +277,7 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         else  // Random state is close enough
             newState = randState;
 
-        OMPL_INFORM("randMotionDistance: %f", randMotionDistance);
+        // OMPL_INFORM("randMotionDistance: %f", randMotionDistance);
         sampleNum_++;
 
         // IV.
@@ -294,7 +294,7 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
 
         goal->isSatisfied(newState, &distToGoal_);
 
-        bool is_valid = perLinkTransitionTest(nearMotion, newState);
+        bool is_valid = perLinkTransitionTestWedighted(nearMotion, newState);
         // bool is_valid = perBranchTransitionTest(nearMotion, randMotionDistance, childCost);
         if (!is_valid)
         {
@@ -499,6 +499,83 @@ bool ompl::geometric::ContactTRRT::perBranchTransitionTest(Motion *parentMotion,
     }
 }
 
+bool ompl::geometric::ContactTRRT::perLinkTransitionTestWedighted(Motion *parentMotion, base::State *newState)
+{
+    base::State *nearState = parentMotion->state;
+    Eigen::VectorXd vfield = vf_(nearState);
+    const double lambdaScale = vfield.norm();
+    OMPL_INFORM("lambdaScale: %f", lambdaScale);
+    if (lambdaScale < std::numeric_limits<float>::epsilon())
+    {
+        return true;
+    }
+
+    Eigen::VectorXd vnew(vfdim_);
+    Eigen::VectorXd vnear(vfdim_);
+
+    for (std::size_t i = 0; i < vfdim_; i++)
+    {
+        vnew[i] = *si_->getStateSpace()->getValueAddressAtIndex(newState, i);
+        vnear[i] = *si_->getStateSpace()->getValueAddressAtIndex(nearState, i);
+    }
+
+    Eigen::VectorXd vdiff(vnew - vnear);
+
+    Eigen::VectorXd &vtemp = parentMotion->vtemp;
+    Eigen::VectorXd &vnumfail = parentMotion->vnumfail;
+
+    bool is_valid = true;
+    double prev_cost = 0;
+    std::size_t link_to_inc = 0;
+    double min_temp = vtemp[0];
+
+    for (std::size_t i = 0; i < vfdim_; i++)
+    {
+        Eigen::VectorXd subfield = vfield.head(i + 1);
+        Eigen::VectorXd subnew = vdiff.head(i + 1);
+        double cost = subfield.squaredNorm() - subfield.dot(subnew) - prev_cost;
+        prev_cost += std::abs(cost);
+
+        double &temp = vtemp[i];
+        double &numfail = vnumfail[i];
+
+        double tranProb = exp(-1.0 * std::abs(cost) / (temp * parentMotion->K_));
+
+        OMPL_INFORM("%ld cost: %f", i, cost);
+        OMPL_INFORM("%ld prev_cost: %f", i, prev_cost);
+        OMPL_INFORM("%ld temp: %f", i, temp);
+        OMPL_INFORM("tranProb: %f", tranProb);
+
+        if (tranProb < 0.5)
+        {
+            is_valid = false;
+            if (vtemp[i] < min_temp)
+            {
+                link_to_inc = i;
+            }
+        }
+        else
+        {
+            temp /= 1.2;
+            numfail = 0;
+        }
+    }
+
+    if (!is_valid)
+    {
+        double &temp = vtemp[link_to_inc];
+        double &numfail = vnumfail[link_to_inc];
+        temp *= 1.9;
+        numfail++;
+        OMPL_INFORM("State is not valid.");
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
 bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, base::State *newState)
 {
     base::State *nearState = parentMotion->state;
@@ -523,27 +600,6 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, b
 
     Eigen::VectorXd vdiff(vnew - vnear);
 
-    // OMPL_INFORM("VNEW");
-    // for (std::size_t i = 0; i < vfdim_; i++)
-    // {
-    //     std::cout << vnew[i] << ", ";
-    // }
-    // std::cout << std::endl;
-
-    // OMPL_INFORM("VNEAR");
-    // for (std::size_t i = 0; i < vfdim_; i++)
-    // {
-    //     std::cout << vnear[i] << ", ";
-    // }
-    // std::cout << std::endl;
-
-    // OMPL_INFORM("VFIELD");
-    // for (std::size_t i = 0; i < vfdim_; i++)
-    // {
-    //     std::cout << vfield[i] << ", ";
-    // }
-    // std::cout << std::endl;
-
     Eigen::VectorXd &vtemp = parentMotion->vtemp;
     Eigen::VectorXd &vnumfail = parentMotion->vnumfail;
 
@@ -563,21 +619,21 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, b
         double &numfail = vnumfail[i];
 
         // OMPL_INFORM("subs size: %ld", subfield.size());
-        OMPL_INFORM("%ld cost: %f", i, cost);
-        OMPL_INFORM("%ld prev_cost: %f", i, prev_cost);
-        OMPL_INFORM("%ld temp: %f", i, temp);
-        OMPL_INFORM("%ld numfail: %f", i, numfail);
-        OMPL_INFORM("%ld distToGoal_: %f", i, distToGoal_);
+        // OMPL_INFORM("%ld cost: %f", i, cost);
+        // OMPL_INFORM("%ld prev_cost: %f", i, prev_cost);
+        // OMPL_INFORM("%ld temp: %f", i, temp);
+        // OMPL_INFORM("%ld numfail: %f", i, numfail);
+        // OMPL_INFORM("%ld distToGoal_: %f", i, distToGoal_);
 
         double tranProb = exp(-1.0 * std::abs(cost) / (temp * parentMotion->K_));
-        OMPL_INFORM("tranProb: %f", tranProb);
+        // OMPL_INFORM("tranProb: %f", tranProb);
 
         // double randProb = (double)rand() / RAND_MAX;
         // OMPL_INFORM("randProb: %f", randProb);
 
         if (tranProb > 0.5)
         {
-            temp /= 1.08;
+            temp /= 1.25;
             OMPL_INFORM("tranProb > randProb: %f", temp);
 
             numfail = 0;
@@ -585,7 +641,7 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, b
         }
         else
         {
-            temp *= 1.1;
+            temp *= 1.3;
             // if (numfail > parentMotion->nFailMax_)
             // {
             //     OMPL_INFORM("nFail > nFailMax_: temp: %f", temp);
@@ -666,7 +722,7 @@ void ompl::geometric::ContactTRRT::setMaxTemp(double temp)
 
 void ompl::geometric::ContactTRRT::saveData()
 {
-    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::app);
+    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::app);
     if (file.is_open())
     {
         file << sampleNum_;
@@ -691,7 +747,7 @@ void ompl::geometric::ContactTRRT::saveData()
 
 void ompl::geometric::ContactTRRT::initDataFile()
 {
-    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::trunc);
+    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::trunc);
     if (file.is_open())
     {
         file << "sampleNumber";

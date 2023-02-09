@@ -269,6 +269,8 @@ namespace ompl
             /** \brief Filter irrelevant configuration regarding the search of low-cost paths before inserting into tree
                 \param motionCost - cost of the motion to be evaluated
             */
+
+            bool perLinkTransitionTestWedighted(Motion *parentMotion, base::State *newState);
             bool perLinkTransitionTest(Motion *parentMotion, base::State *newState);
             bool perBranchTransitionTest(Motion *parentMotion, double dist, const base::Cost &childCost);
             /** \brief Use ratio to prefer frontier nodes to nonfrontier ones */
