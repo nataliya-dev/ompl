@@ -544,20 +544,24 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestWedighted(Motion *parent
         OMPL_INFORM("%ld cost: %f", i, cost);
         OMPL_INFORM("%ld prev_cost: %f", i, prev_cost);
         OMPL_INFORM("%ld temp: %f", i, temp);
-        OMPL_INFORM("tranProb: %f", tranProb);
+        OMPL_INFORM("%ld tranProb: %f", i, tranProb);
 
         if (tranProb < 0.5)
         {
             is_valid = false;
             if (vtemp[i] < min_temp)
             {
+                min_temp = vtemp[i];
                 link_to_inc = i;
             }
         }
         else
         {
-            temp /= 1.2;
-            numfail = 0;
+            if (temp > parentMotion->initTemperature_)
+            {
+                temp /= 1.3;
+                numfail = 0;
+            }
         }
     }
 
@@ -565,7 +569,7 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestWedighted(Motion *parent
     {
         double &temp = vtemp[link_to_inc];
         double &numfail = vnumfail[link_to_inc];
-        temp *= 1.9;
+        temp *= 2.0;
         numfail++;
         OMPL_INFORM("State is not valid.");
         return false;

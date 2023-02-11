@@ -238,7 +238,7 @@ void plan(double runTime, optimalPlanner plannerType, planningObjective objectiv
     auto space(std::make_shared<ob::RealVectorStateSpace>(2));
 
     // Set the bounds of space to be in [0,1].
-    space->setBounds(0.0, 1.0);
+    space->setBounds(0.0, 100.0);
 
     // Construct a space information instance for this state space
     auto si(std::make_shared<ob::SpaceInformation>(space));
@@ -257,8 +257,8 @@ void plan(double runTime, optimalPlanner plannerType, planningObjective objectiv
     // Set our robot's goal state to be the top-right corner of the
     // environment, or (1,1).
     ob::ScopedState<> goal(space);
-    goal->as<ob::RealVectorStateSpace::StateType>()->values[0] = 0.5;
-    goal->as<ob::RealVectorStateSpace::StateType>()->values[1] = 0.5;
+    goal->as<ob::RealVectorStateSpace::StateType>()->values[0] = 50.0;
+    goal->as<ob::RealVectorStateSpace::StateType>()->values[1] = 50.0;
 
     // Create a problem instance
     auto pdef(std::make_shared<ob::ProblemDefinition>(si));
@@ -393,8 +393,8 @@ ob::OptimizationObjectivePtr getClearanceObjective(const ob::SpaceInformationPtr
 
 Eigen::VectorXd obstacleField(const ompl::base::State *state)
 {
-    double centerX = 0.5;
-    double centerY = 0.5;
+    double centerX = 50.0;
+    double centerY = 50.0;
     // double R = 0.25;
 
     // We know we're working with a RealVectorStateSpace in this
