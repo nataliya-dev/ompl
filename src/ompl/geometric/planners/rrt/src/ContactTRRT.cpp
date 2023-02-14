@@ -288,13 +288,27 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
             continue;  // try a new sample
         }
 
-        // base::Cost childCost = opt_->stateCost(newState);
-        // base::Cost childCost = opt_->motionCost(nearMotion->state, newState);
-        // OMPL_INFORM("childCost.value(): %f", childCost.value());
+        base::Cost childCost = opt_->motionCost(nearMotion->state, newState);
+        OMPL_INFORM("childCost.value(): %f", childCost.value());
+
+        goal->isSatisfied(nearMotion->state, &distToGoal_);
+        double distA = distToGoal_;
 
         goal->isSatisfied(newState, &distToGoal_);
+        double distB = distToGoal_;
 
-        bool is_valid = perLinkTransitionTestWedighted(nearMotion, newState);
+        double costA = childCost.value();
+        double costB = nearMotion->cost.value();
+
+        OMPL_INFORM("distA: %f", distA);
+        OMPL_INFORM("distB: %f", distB);
+        OMPL_INFORM("costA: %f", costA);
+        OMPL_INFORM("costB: %f", costB);
+        slopeM_ = (costB) / (distB);
+        OMPL_INFORM("slopeM_: %f", slopeM_);
+
+        // bool is_valid = perLinkTransitionTestWedighted(nearMotion, newState);
+        bool is_valid = perLinkTransitionTest(nearMotion, newState);
         // bool is_valid = perBranchTransitionTest(nearMotion, randMotionDistance, childCost);
         if (!is_valid)
         {
@@ -315,7 +329,7 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         auto *motion = new Motion(si_);
         si_->copyState(motion->state, newState);
         motion->parent = nearMotion;  // link q_new to q_near as an edge
-        // motion->cost = childCost;
+        motion->cost = childCost;
 
         motion->vthresh = nearMotion->vthresh;
         motion->vnumfail = nearMotion->vnumfail;
@@ -537,7 +551,6 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestWedighted(Motion *parent
         prev_cost += std::abs(cost);
 
         double &temp = vtemp[i];
-        double &numfail = vnumfail[i];
 
         double tranProb = exp(-1.0 * std::abs(cost) / (temp * parentMotion->K_));
 
@@ -555,27 +568,25 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestWedighted(Motion *parent
                 link_to_inc = i;
             }
         }
-        else
-        {
-            if (temp > parentMotion->initTemperature_)
-            {
-                temp /= 1.3;
-                numfail = 0;
-            }
-        }
     }
 
     if (!is_valid)
     {
         double &temp = vtemp[link_to_inc];
-        double &numfail = vnumfail[link_to_inc];
-        temp *= 2.0;
-        numfail++;
+        temp *= (1.1);
         OMPL_INFORM("State is not valid.");
         return false;
     }
     else
     {
+        for (std::size_t i = 0; i < vfdim_; i++)
+        {
+            double &temp = vtemp[i];
+            if (temp > parentMotion->initTemperature_)
+            {
+                temp /= (1.1);
+            }
+        }
         return true;
     }
 }
@@ -637,15 +648,17 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, b
 
         if (tranProb > 0.5)
         {
-            temp /= 1.25;
+            if (temp > parentMotion->initTemperature_)
+            {
+                temp /= (2.0);
+            }
             OMPL_INFORM("tranProb > randProb: %f", temp);
-
             numfail = 0;
             continue;
         }
         else
         {
-            temp *= 1.3;
+            temp *= (1.5);
             // if (numfail > parentMotion->nFailMax_)
             // {
             //     OMPL_INFORM("nFail > nFailMax_: temp: %f", temp);
@@ -726,7 +739,7 @@ void ompl::geometric::ContactTRRT::setMaxTemp(double temp)
 
 void ompl::geometric::ContactTRRT::saveData()
 {
-    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::app);
+    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::app);
     if (file.is_open())
     {
         file << sampleNum_;
@@ -740,6 +753,8 @@ void ompl::geometric::ContactTRRT::saveData()
         file << temp_;
         file << ",";
         file << maxTemp_;
+        file << ",";
+        file << slopeM_;
         file << "\n";
         file.close();
     }
@@ -751,7 +766,7 @@ void ompl::geometric::ContactTRRT::saveData()
 
 void ompl::geometric::ContactTRRT::initDataFile()
 {
-    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::trunc);
+    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::trunc);
     if (file.is_open())
     {
         file << "sampleNumber";
@@ -765,6 +780,8 @@ void ompl::geometric::ContactTRRT::initDataFile()
         file << "temp";
         file << ",";
         file << "maxTemp";
+        file << ",";
+        file << "slopeM";
         file << "\n";
         file.close();
     }

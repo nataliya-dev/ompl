@@ -317,6 +317,7 @@ namespace ompl
             double distToGoal_ = 0.0;
             double temp_ = 0.1;
             double maxTemp_ = -1.0;
+            double slopeM_ = 0;
 
             /** Dimensionality of vector field */
             unsigned int vfdim_{0u};

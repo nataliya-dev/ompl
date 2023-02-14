@@ -94,7 +94,7 @@ namespace ompl
                     si_->freeState(interp[i]);
                 }
                 si_->freeState(interp[interp.size() - 1]);
-                std::cout << "cost: " << cost << std::endl;
+                // std::cout << "cost: " << cost << std::endl;
                 if (cost < 0.0)
                 {
                     cost = 0.0;
