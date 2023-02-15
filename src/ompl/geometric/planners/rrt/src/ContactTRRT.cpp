@@ -62,6 +62,27 @@ ompl::geometric::ContactTRRT::ContactTRRT(const base::SpaceInformationPtr &si, V
     //                               &ContactTRRT::getCostThreshold);
 }
 
+ompl::geometric::ContactTRRT::ContactTRRT(const base::SpaceInformationPtr &si, VectorFieldDuo vf)
+  : base::Planner(si, "ContactTRRT"), vfduo_(std::move(vf))
+{
+    // Standard RRT Variables
+    specs_.approximateSolutions = true;
+    specs_.directed = true;
+
+    Planner::declareParam<double>("range", this, &ContactTRRT::setRange, &ContactTRRT::getRange, "0.:1.:10000.");
+    Planner::declareParam<double>("goal_bias", this, &ContactTRRT::setGoalBias, &ContactTRRT::getGoalBias, "0.:.05:1.");
+    // Planner::declareParam<double>("temp_change_factor", this, &ContactTRRT::setTempChangeFactor,
+    //                               &ContactTRRT::getTempChangeFactor, "0.:.1:1.");
+    // Planner::declareParam<double>("init_temperature", this, &ContactTRRT::setInitTemperature,
+    //                               &ContactTRRT::getInitTemperature);
+    Planner::declareParam<double>("frontier_threshold", this, &ContactTRRT::setFrontierThreshold,
+                                  &ContactTRRT::getFrontierThreshold);
+    Planner::declareParam<double>("frontier_node_ratio", this, &ContactTRRT::setFrontierNodeRatio,
+                                  &ContactTRRT::getFrontierNodeRatio);
+    // Planner::declareParam<double>("cost_threshold", this, &ContactTRRT::setCostThreshold,
+    //                               &ContactTRRT::getCostThreshold);
+}
+
 ompl::geometric::ContactTRRT::~ContactTRRT()
 {
     freeMemory();
@@ -288,27 +309,30 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
             continue;  // try a new sample
         }
 
-        base::Cost childCost = opt_->motionCost(nearMotion->state, newState);
-        OMPL_INFORM("childCost.value(): %f", childCost.value());
+        // base::Cost childCost = opt_->motionCost(nearMotion->state, newState);
+        // OMPL_INFORM("childCost.value(): %f", childCost.value());
 
-        goal->isSatisfied(nearMotion->state, &distToGoal_);
-        double distA = distToGoal_;
+        // goal->isSatisfied(nearMotion->state, &distToGoal_);
+        // double distA = distToGoal_;
 
-        goal->isSatisfied(newState, &distToGoal_);
-        double distB = distToGoal_;
+        // goal->isSatisfied(newState, &distToGoal_);
+        // double distB = distToGoal_;
 
-        double costA = childCost.value();
-        double costB = nearMotion->cost.value();
+        // double costA = childCost.value();
+        // double costB = nearMotion->cost.value();
 
-        OMPL_INFORM("distA: %f", distA);
-        OMPL_INFORM("distB: %f", distB);
-        OMPL_INFORM("costA: %f", costA);
-        OMPL_INFORM("costB: %f", costB);
-        slopeM_ = (costB) / (distB);
-        OMPL_INFORM("slopeM_: %f", slopeM_);
+        // OMPL_INFORM("distA: %f", distA);
+        // OMPL_INFORM("distB: %f", distB);
+        // OMPL_INFORM("costA: %f", costA);
+        // OMPL_INFORM("costB: %f", costB);
+        // slopeM_ = (costB) / (distB);
+        // OMPL_INFORM("slopeM_: %f", slopeM_);
 
         // bool is_valid = perLinkTransitionTestWedighted(nearMotion, newState);
-        bool is_valid = perLinkTransitionTest(nearMotion, newState);
+        // bool is_valid = perLinkTransitionTest(nearMotion, newState);
+
+        bool is_valid = perLinkTransitionTestCart(nearMotion, newState);
+
         // bool is_valid = perBranchTransitionTest(nearMotion, randMotionDistance, childCost);
         if (!is_valid)
         {
@@ -329,7 +353,7 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         auto *motion = new Motion(si_);
         si_->copyState(motion->state, newState);
         motion->parent = nearMotion;  // link q_new to q_near as an edge
-        motion->cost = childCost;
+        // motion->cost = childCost;
 
         motion->vthresh = nearMotion->vthresh;
         motion->vnumfail = nearMotion->vnumfail;
@@ -587,6 +611,82 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestWedighted(Motion *parent
                 temp /= (1.1);
             }
         }
+        return true;
+    }
+}
+
+bool ompl::geometric::ContactTRRT::perLinkTransitionTestCart(Motion *parentMotion, base::State *newState)
+{
+    base::State *nearState = parentMotion->state;
+    Eigen::VectorXd vfield = vfduo_(nearState, newState);
+    const double lambdaScale = vfield.norm();
+    OMPL_INFORM("lambdaScale: %f", lambdaScale);
+    if (lambdaScale < std::numeric_limits<float>::epsilon())
+    {
+        return true;
+    }
+
+    Eigen::VectorXd vnew(vfdim_);
+    Eigen::VectorXd vnear(vfdim_);
+
+    for (std::size_t i = 0; i < vfdim_; i++)
+    {
+        vnear[i] = *si_->getStateSpace()->getValueAddressAtIndex(nearState, i);
+        vnew[i] = *si_->getStateSpace()->getValueAddressAtIndex(newState, i);
+    }
+    std::cout << "vnew: " << vnew.transpose() << std::endl;
+    std::cout << "vnear: " << vnear.transpose() << std::endl;
+    std::cout << "vfield: " << vfield.transpose() << std::endl;
+
+    bool is_valid = true;
+    // Eigen::VectorXd &vtemp = parentMotion->vtemp;
+    Eigen::VectorXd &vnumfail = parentMotion->vnumfail;
+    Eigen::VectorXd &vthresh = parentMotion->vthresh;
+
+    for (std::size_t i = 0; i < vfdim_; i++)
+    {
+        double cost = vfield[i];
+        double &thresh = vthresh[i];
+        double &numfail = vnumfail[i];
+        // double &temp = vtemp[i];
+
+        OMPL_INFORM("%ld cost: %f", i, cost);
+        OMPL_INFORM("%ld thresh: %f", i, thresh);
+        OMPL_INFORM("%ld numfail: %f", i, numfail);
+
+        // OMPL_INFORM("%ld temp: %f", i, temp);
+        // double tranProb = exp(-1.0 * std::abs(cost) / (temp * parentMotion->K_));
+        // OMPL_INFORM("tranProb: %f", tranProb);
+
+        // double randProb = (double)rand() / RAND_MAX;
+        // OMPL_INFORM("randProb: %f", randProb);
+
+        if (cost > thresh)
+        {
+            if (thresh < parentMotion->maxThresh_)
+            {
+                thresh += 0.00025;
+            }
+            OMPL_INFORM("thresh < parentMotion->maxThresh_: %f", thresh);
+            numfail = 0;
+            continue;
+        }
+        else
+        {
+            thresh -= 0.0005;
+            numfail++;
+            is_valid = false;
+            break;
+        }
+    }
+
+    if (!is_valid)
+    {
+        OMPL_INFORM("State is not valid.");
+        return false;
+    }
+    else
+    {
         return true;
     }
 }

@@ -67,8 +67,12 @@ namespace ompl
         public:
             using VectorField = std::function<Eigen::VectorXd(const base::State *)>;
 
+            using VectorFieldDuo = std::function<Eigen::VectorXd(const base::State *, const base::State *)>;
+
             /** \brief Constructor */
             ContactTRRT(const base::SpaceInformationPtr &si, VectorField vf);
+
+            ContactTRRT(const base::SpaceInformationPtr &si, VectorFieldDuo vf);
 
             ~ContactTRRT() override;
 
@@ -173,10 +177,9 @@ namespace ompl
                   , vnumfail(vfdim_)
                   , vtemp(vfdim_)
                 {
-                    double min_thresh = 0.05;
                     for (std::size_t i = 0; i < 7; i++)
                     {
-                        vthresh[i] = min_thresh;
+                        vthresh[i] = maxThresh_;
                         vnumfail[i] = 0.0;
                         vtemp[i] = initTemperature_;
                     }
@@ -204,7 +207,9 @@ namespace ompl
                 int nFail_ = 0;
                 double temp_;
 
-                double initTemperature_ = 0.1;
+                double initTemperature_ = 0.001;
+                double maxThresh_ = 0.001;
+
                 int nFailMax_ = 5;
                 double K_ = 1.0;
                 base::Cost costThreshold_;
@@ -273,6 +278,9 @@ namespace ompl
             bool perLinkTransitionTestWedighted(Motion *parentMotion, base::State *newState);
             bool perLinkTransitionTest(Motion *parentMotion, base::State *newState);
             bool perBranchTransitionTest(Motion *parentMotion, double dist, const base::Cost &childCost);
+
+            bool perLinkTransitionTestCart(Motion *parentMotion, base::State *newState);
+
             /** \brief Use ratio to prefer frontier nodes to nonfrontier ones */
             bool minExpansionControl(double randMotionDistance);
 
@@ -323,6 +331,8 @@ namespace ompl
             unsigned int vfdim_{0u};
 
             const VectorField vf_;
+
+            const VectorFieldDuo vfduo_;
 
             // Minimum Expansion Control --------------------------------------------------------------
 
