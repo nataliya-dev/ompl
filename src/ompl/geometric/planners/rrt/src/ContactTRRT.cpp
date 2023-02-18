@@ -331,7 +331,7 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         // bool is_valid = perLinkTransitionTestWedighted(nearMotion, newState);
         // bool is_valid = perLinkTransitionTest(nearMotion, newState);
 
-        bool is_valid = perLinkTransitionTestCart(nearMotion, newState);
+        bool is_valid = perLinkTransitionTestCartWeighted(nearMotion, newState);
 
         // bool is_valid = perBranchTransitionTest(nearMotion, randMotionDistance, childCost);
         if (!is_valid)
@@ -615,6 +615,90 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestWedighted(Motion *parent
     }
 }
 
+bool ompl::geometric::ContactTRRT::perLinkTransitionTestCartWeighted(Motion *parentMotion, base::State *newState)
+{
+    base::State *nearState = parentMotion->state;
+    Eigen::VectorXd vfield = vfduo_(nearState, newState);
+    const double lambdaScale = vfield.norm();
+    OMPL_INFORM("lambdaScale: %f", lambdaScale);
+    if (lambdaScale < std::numeric_limits<float>::epsilon())
+    {
+        return true;
+    }
+
+    Eigen::VectorXd vnew(vfdim_);
+    Eigen::VectorXd vnear(vfdim_);
+
+    for (std::size_t i = 0; i < vfdim_; i++)
+    {
+        vnear[i] = *si_->getStateSpace()->getValueAddressAtIndex(nearState, i);
+        vnew[i] = *si_->getStateSpace()->getValueAddressAtIndex(newState, i);
+    }
+    std::cout << "vnew: " << vnew.transpose() << std::endl;
+    std::cout << "vnear: " << vnear.transpose() << std::endl;
+    std::cout << "vfield: " << vfield.transpose() << std::endl;
+
+    bool is_valid = true;
+    // Eigen::VectorXd &vtemp = parentMotion->vtemp;
+    Eigen::VectorXd &vnumfail = parentMotion->vnumfail;
+    Eigen::VectorXd &vthresh = parentMotion->vthresh;
+
+    std::size_t link_to_inc = 0;
+    double max_thresh = vthresh[0];
+
+    for (std::size_t i = 0; i < vfdim_; i++)
+    {
+        double cost = vfield[i];
+        double &thresh = vthresh[i];
+        double &numfail = vnumfail[i];
+        // double &temp = vtemp[i];
+
+        OMPL_INFORM("%ld cost: %f", i, cost);
+        OMPL_INFORM("%ld thresh: %f", i, thresh);
+        OMPL_INFORM("%ld numfail: %f", i, numfail);
+
+        // OMPL_INFORM("%ld temp: %f", i, temp);
+        // double tranProb = exp(-1.0 * std::abs(cost) / (temp * parentMotion->K_));
+        // OMPL_INFORM("tranProb: %f", tranProb);
+
+        // double randProb = (double)rand() / RAND_MAX;
+        // OMPL_INFORM("randProb: %f", randProb);
+
+        if (cost < thresh)
+        {
+            is_valid = false;
+            if (thresh > max_thresh)
+            {
+                max_thresh = thresh;
+                link_to_inc = i;
+            }
+        }
+    }
+
+    OMPL_INFORM("max_thresh: %f", max_thresh);
+    OMPL_INFORM("link_to_inc: %ld", link_to_inc);
+
+    if (!is_valid)
+    {
+        double &thresh = vthresh[link_to_inc];
+        thresh -= thresh * 0.6;
+        OMPL_INFORM("State is not valid.");
+        return false;
+    }
+    else
+    {
+        for (std::size_t i = 0; i < vfdim_; i++)
+        {
+            double &thresh = vthresh[i];
+            if (thresh < parentMotion->maxThresh_)
+            {
+                thresh += thresh * 0.2;
+            }
+        }
+        return true;
+    }
+}
+
 bool ompl::geometric::ContactTRRT::perLinkTransitionTestCart(Motion *parentMotion, base::State *newState)
 {
     base::State *nearState = parentMotion->state;
@@ -665,7 +749,7 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestCart(Motion *parentMotio
         {
             if (thresh < parentMotion->maxThresh_)
             {
-                thresh += 0.00025;
+                thresh += thresh * 0.05;
             }
             OMPL_INFORM("thresh < parentMotion->maxThresh_: %f", thresh);
             numfail = 0;
@@ -673,7 +757,7 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestCart(Motion *parentMotio
         }
         else
         {
-            thresh -= 0.0005;
+            thresh -= thresh * 0.2;
             numfail++;
             is_valid = false;
             break;

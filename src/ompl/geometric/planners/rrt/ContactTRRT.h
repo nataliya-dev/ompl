@@ -280,6 +280,7 @@ namespace ompl
             bool perBranchTransitionTest(Motion *parentMotion, double dist, const base::Cost &childCost);
 
             bool perLinkTransitionTestCart(Motion *parentMotion, base::State *newState);
+            bool perLinkTransitionTestCartWeighted(Motion *parentMotion, base::State *newState);
 
             /** \brief Use ratio to prefer frontier nodes to nonfrontier ones */
             bool minExpansionControl(double randMotionDistance);
