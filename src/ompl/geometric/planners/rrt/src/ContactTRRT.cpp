@@ -331,7 +331,7 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         // bool is_valid = perLinkTransitionTestWedighted(nearMotion, newState);
         // bool is_valid = perLinkTransitionTest(nearMotion, newState);
 
-        bool is_valid = perLinkTransitionTestCartWeighted(nearMotion, newState);
+        bool is_valid = perLinkTransitionTestCart(nearMotion, newState);
 
         // bool is_valid = perBranchTransitionTest(nearMotion, randMotionDistance, childCost);
         if (!is_valid)
@@ -749,7 +749,7 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestCart(Motion *parentMotio
         {
             if (thresh < parentMotion->maxThresh_)
             {
-                thresh += thresh * 0.05;
+                thresh += 0.0015;
             }
             OMPL_INFORM("thresh < parentMotion->maxThresh_: %f", thresh);
             numfail = 0;
@@ -757,7 +757,7 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestCart(Motion *parentMotio
         }
         else
         {
-            thresh -= thresh * 0.2;
+            thresh -= 0.002;
             numfail++;
             is_valid = false;
             break;

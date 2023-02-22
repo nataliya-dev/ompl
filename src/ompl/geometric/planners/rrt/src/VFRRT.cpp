@@ -72,6 +72,7 @@ void ompl::geometric::VFRRT::setup()
 {
     RRT::setup();
     vfdim_ = si_->getStateSpace()->getValueLocations().size();
+    initDataFile();
 }
 
 double ompl::geometric::VFRRT::determineMeanNorm()
@@ -302,14 +303,19 @@ ompl::base::PlannerStatus ompl::geometric::VFRRT::solve(const base::PlannerTermi
         // Find closest state in the tree
         Motion *nmotion = nn_->nearest(rmotion);
 
+        sampleNum_++;
+
         // Modify direction based on vector field before extending
         Motion *motion = extendTree(nmotion, rstate, getNewDirection(nmotion->state, rstate));
         if (!motion)
             continue;
 
         // Check if we can connect to the goal
+
         double dist = 0;
         bool sat = goal->isSatisfied(motion->state, &dist);
+        setMinDistToGoal(dist);
+        saveData();
         if (sat)
         {
             approxdif = dist;
@@ -359,4 +365,46 @@ ompl::base::PlannerStatus ompl::geometric::VFRRT::solve(const base::PlannerTermi
     OMPL_INFORM("%s: Created %u states", getName().c_str(), nn_->size());
 
     return {solved, approximate};
+}
+
+void ompl::geometric::VFRRT::saveData()
+{
+    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/VFRRT.csv", std::ios::out | std::ios::app);
+    if (file.is_open())
+    {
+        file << sampleNum_;
+        file << ",";
+        file << minDistTGoal_;
+        file << "\n";
+        file.close();
+    }
+    else
+    {
+        OMPL_ERROR("Unable to open file for writing.");
+    }
+}
+
+void ompl::geometric::VFRRT::initDataFile()
+{
+    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/VFRRT.csv", std::ios::out | std::ios::trunc);
+    if (file.is_open())
+    {
+        file << "sampleNumber";
+        file << ",";
+        file << "minDistToGoal";
+        file << "\n";
+        file.close();
+    }
+    else
+    {
+        OMPL_ERROR("Unable to open file for writing.");
+    }
+}
+
+void ompl::geometric::VFRRT::setMinDistToGoal(double dist)
+{
+    if (dist < minDistTGoal_)
+    {
+        minDistTGoal_ = dist;
+    }
 }
