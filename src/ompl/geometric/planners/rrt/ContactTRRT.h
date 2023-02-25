@@ -325,7 +325,7 @@ namespace ompl
             double minDistTGoal_ = 10000.0;
             double distToGoal_ = 0.0;
             double temp_ = 0.1;
-            double maxTemp_ = -1.0;
+            double maxTemp_ = 1000.0;
             double slopeM_ = 0;
 
             /** Dimensionality of vector field */

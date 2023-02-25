@@ -337,8 +337,7 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         if (!is_valid)
         {
             saveData();
-            temp_ = nearMotion->temp_;
-            setMaxTemp(temp_);
+            setMaxTemp(nearMotion->vthresh.mean());
             continue;
         }
         // Minimum Expansion Control
@@ -915,7 +914,7 @@ void ompl::geometric::ContactTRRT::setMinDistToGoal(double dist)
 
 void ompl::geometric::ContactTRRT::setMaxTemp(double temp)
 {
-    if (temp > maxTemp_)
+    if (temp < maxTemp_)
     {
         maxTemp_ = temp;
     }
@@ -923,7 +922,7 @@ void ompl::geometric::ContactTRRT::setMaxTemp(double temp)
 
 void ompl::geometric::ContactTRRT::saveData()
 {
-    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::app);
+    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::app);
     if (file.is_open())
     {
         file << sampleNum_;
@@ -950,7 +949,7 @@ void ompl::geometric::ContactTRRT::saveData()
 
 void ompl::geometric::ContactTRRT::initDataFile()
 {
-    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::trunc);
+    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::trunc);
     if (file.is_open())
     {
         file << "sampleNumber";
