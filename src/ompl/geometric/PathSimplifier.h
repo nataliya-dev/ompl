@@ -52,12 +52,6 @@ namespace ompl
     namespace geometric
     {
 
-        enum class SimplificationType
-        {
-            DEFAULT = 0,
-            SMOOTH_COST
-        };
-
         /// @cond IGNORE
         /** \brief Forward declaration of ompl::geometric::PathSimplifier */
         OMPL_CLASS_FORWARD(PathSimplifier);
@@ -258,8 +252,6 @@ namespace ompl
              * simplification */
             bool freeStates() const;
 
-            void setSimplificationType(ompl::geometric::SimplificationType type);
-
         protected:
             int selectAlongPath(std::vector<double> dists, std::vector<base::State *> states, double distTo,
                                 double threshold, base::State *select_state, int &pos);
@@ -279,8 +271,6 @@ namespace ompl
 
             /** \brief Instance of random number generator */
             RNG rng_;
-
-            SimplificationType simplificationType_ = SimplificationType::DEFAULT;
         };
     }  // namespace geometric
 }  // namespace ompl

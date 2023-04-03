@@ -742,10 +742,6 @@ bool ompl::geometric::PathSimplifier::smoothCost(PathGeometric &path, const base
 bool ompl::geometric::PathSimplifier::simplify(PathGeometric &path, const base::PlannerTerminationCondition &ptc,
                                                bool atLeastOnce)
 {
-    if (simplificationType_ == ompl::geometric::SimplificationType::SMOOTH_COST)
-    {
-        return smoothCost(path, ptc);
-    }
     OMPL_INFORM("Default path simplification.");
 
     if (path.getStateCount() < 3)
@@ -1013,9 +1009,4 @@ int ompl::geometric::PathSimplifier::selectAlongPath(std::vector<double> dists, 
         si_->getStateSpace()->interpolate(states[pos], states[pos + 1], t, select_state);
         return -1;
     }
-}
-
-void ompl::geometric::PathSimplifier::setSimplificationType(ompl::geometric::SimplificationType type)
-{
-    simplificationType_ = type;
 }
