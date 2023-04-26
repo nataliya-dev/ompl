@@ -77,7 +77,7 @@ find_library(PYTHON_LIBRARIES
     PATHS
         "${PYTHON_PREFIX}/lib"
         [HKEY_LOCAL_MACHINE\\SOFTWARE\\Python\\PythonCore\\${PYTHON_VERSION}\\InstallPath]/libs
-    PATH_SUFFIXES "" "python${PYTHON_VERSION}/config" "x86_64-linux-gnu" "i386-linux-gnu"
+    PATH_SUFFIXES "" "python${PYTHON_VERSION}/config" "x86_64-linux-gnu" "i386-linux-gnu" "aarch64-linux-gnu"
     DOC "Python libraries" NO_DEFAULT_PATH)
 
 find_path(PYTHON_INCLUDE_DIRS "Python.h"
@@ -115,20 +115,35 @@ function(find_python_module module)
         # A module's location is usually a directory, but for binary modules
         # it's a .so file.
         if (_minversion STREQUAL "")
-            execute_process(COMMAND "${PYTHON_EXEC}" "-c"
-                "import re, inspect, ${module}; print(re.compile('/__init__.py.*').sub('',inspect.getfile(${module})))"
-                RESULT_VARIABLE _status OUTPUT_VARIABLE _location
-                ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+            if (${PYTHON_VERSION} VERSION_LESS_EQUAL "3.7")
+                execute_process(COMMAND "${PYTHON_EXEC}" "-c"
+                    "import re, inspect, ${module}; print(re.compile('/__init__.py.*').sub('',inspect.getfile(${module})))"
+                    RESULT_VARIABLE _status OUTPUT_VARIABLE _location
+                    ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+            else()
+                execute_process(COMMAND "${PYTHON_EXEC}" "-c"
+                    "from importlib.util import find_spec; print(find_spec('${module}').submodule_search_locations[0])"
+                    RESULT_VARIABLE _status OUTPUT_VARIABLE _location
+                    ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+            endif()
             if(NOT _status)
                 set(PY_${module_upper} ${_location} CACHE STRING
                     "Location of Python module ${module}")
             endif(NOT _status)
         else (_minversion STREQUAL "")
-            execute_process(COMMAND "${PYTHON_EXEC}" "-c"
-                "import re, inspect, ${module}; print(re.compile('/__init__.py.*').sub('',${module}.__version__+';'+inspect.getfile(${module})))"
-                RESULT_VARIABLE _status
-                OUTPUT_VARIABLE _verloc
-                ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+            if (${PYTHON_VERSION} VERSION_LESS_EQUAL "3.7")
+                execute_process(COMMAND "${PYTHON_EXEC}" "-c"
+                    "import re, inspect, ${module}; print(re.compile('/__init__.py.*').sub('',${module}.__version__+';'+inspect.getfile(${module})))"
+                    RESULT_VARIABLE _status
+                    OUTPUT_VARIABLE _verloc
+                    ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+            else()
+                execute_process(COMMAND "${PYTHON_EXEC}" "-c"
+                    "from importlib.metadata import version; from importlib.util import find_spec; print(version('${module}') + ';' + find_spec('${module}').submodule_search_locations[0])"
+                    RESULT_VARIABLE _status
+                    OUTPUT_VARIABLE _verloc
+                    ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+            endif()
             if(NOT _status)
                 list(LENGTH _verloc _verloclength)
                 if(_verloclength GREATER 1)
@@ -189,7 +204,7 @@ macro(find_boost_numpy)
             "numpy${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}"
             "numpy${PYTHON_VERSION_MAJOR}" "numpy")
             string(TOUPPER ${_bn_libname} _bn_upper)
-            set(_Boost_${_bn_upper}_HEADERS "boost/numpy.hpp")
+            set(_Boost_${_bn_upper}_HEADERS "boost/python/numpy.hpp")
             find_package(Boost COMPONENTS ${_bn_libname} QUIET)
             set(_bnlib "${Boost_${_bn_upper}_LIBRARY}")
             if (_bnlib)

@@ -17,7 +17,7 @@ if (OMPL_BUILD_TESTS)
     add_ompl_test(test_grid datastructures/grid.cpp)
     add_ompl_test(test_gridb datastructures/gridb.cpp)
     add_ompl_test(test_nearestneighbors datastructures/nearestneighbors.cpp)
-    if(flann_FOUND)
+    if(OMPL_HAVE_FLANN)
         target_link_libraries(test_nearestneighbors ${FLANN_LIBRARIES})
         # FLANN uses std::random_shuffle in a header file which is removed in C++17
         set_target_properties(test_nearestneighbors PROPERTIES CXX_STANDARD 14)
@@ -52,6 +52,9 @@ if (OMPL_BUILD_TESTS)
     # Test planning with controls on a 2D map
     add_ompl_test(test_2dmap_control control/2dmap/2dmap.cpp)
     add_ompl_test(test_planner_data_control control/planner_data.cpp)
+
+    # Test experience based planning
+    add_ompl_test(test_experience_planning tools/test_experience_planning.cpp)
 
     # Test planning via MORSE extension
     if(OMPL_EXTENSION_MORSE)

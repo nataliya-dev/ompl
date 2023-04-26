@@ -191,7 +191,10 @@ class ompl_base_generator_t(code_generator_t):
         self.ompl_ns.class_('SpecificParam< float >').rename('SpecificParamFloat')
         self.ompl_ns.class_('SpecificParam< double >').rename('SpecificParamDouble')
         self.ompl_ns.class_('SpecificParam< long double >').rename('SpecificParamLongDouble')
-        self.ompl_ns.class_(f'SpecificParam< {self.string_decl} >').rename('SpecificParamString')
+        try:
+            self.ompl_ns.class_(f'SpecificParam< std::string >').rename('SpecificParamString')
+        except:
+            self.ompl_ns.class_(f'SpecificParam< std::basic_string< char > >').rename('SpecificParamString')
         for cls in self.ompl_ns.classes(lambda decl: decl.name.startswith('SpecificParam')):
             cls.constructors().exclude()
         # don't export variables that need a wrapper
@@ -328,17 +331,13 @@ class ompl_base_generator_t(code_generator_t):
 #                        self.ompl_ns.class_('ConstraintIntersection')]:
                 for method in ['function', 'jacobian']:
                     cls.member_function(method, arg_types=[
-                        '::Eigen::Ref<const Eigen::Matrix<double, -1, 1, 0, -1, 1>, '
-                        '0, Eigen::InnerStride<1> > const &',
+                        '::Eigen::Ref<const Eigen::Matrix<double, -1, 1, 0>, 0, Eigen::InnerStride<1>> const &',
                         None]).add_transformation(FT.input(0))
             cls = self.ompl_ns.class_('Constraint')
             for method in ['distance', 'isSatisfied']:
                 cls.member_function(method, arg_types=[
-                    '::Eigen::Ref<const Eigen::Matrix<double, -1, 1, 0, -1, 1>, '
-                    '0, Eigen::InnerStride<1> > const &']).add_transformation(FT.input(0))
-        except:
-            # python bindings for constrained planning code is only generated
-            # if boost.numpy was found
+                    '::Eigen::Ref<const Eigen::Matrix<double, -1, 1, 0>, 0, Eigen::InnerStride<1>> const &',]).add_transformation(FT.input(0))
+        except Exception as e:
             pass
 
         # Exclude PlannerData::getEdges function that returns a map of PlannerDataEdge* for now
@@ -665,6 +664,7 @@ class ompl_geometric_generator_t(code_generator_t):
             'bp::return_value_policy< bp::copy_const_reference >())')
         self.std_ns.class_('vector< std::shared_ptr<ompl::geometric::BITstar::Vertex> >').exclude()
         self.std_ns.class_('vector< std::shared_ptr<ompl::geometric::aitstar::Vertex> >').exclude()
+        self.std_ns.class_('vector< std::shared_ptr<ompl::geometric::eitstar::Vertex> >').exclude()
         self.std_ns.class_('vector<const ompl::base::State *>').exclude()
 
         self.std_ns.class_('vector< std::shared_ptr<ompl::base::SpaceInformation> >').rename('vectorSpaceInformation')
@@ -774,6 +774,14 @@ class ompl_geometric_generator_t(code_generator_t):
         cls = self.ompl_ns.class_('AITstar')
         cls.member_function('getVerticesInQueue').exclude()
         cls.member_function('getVerticesInReverseSearchTree').exclude()
+        cls = self.ompl_ns.class_('EITstar')
+        cls.member_function('getForwardQueue').exclude()
+        cls.member_function('getReverseQueue').exclude()
+        cls.member_function('getReverseTree').exclude()
+        cls.member_function('getNextForwardEdge').exclude()
+        cls.member_function('getNextReverseEdge').exclude()
+        cls.member_function('isStart').exclude()
+        cls.member_function('isGoal').exclude()
 
         # needed to able to set connection strategy for PRM
         # the PRM::Vertex type is typedef-ed to boost::graph_traits<Graph>::vertex_descriptor. This
@@ -875,7 +883,7 @@ class ompl_tools_generator_t(code_generator_t):
 
         benchmark_cls = self.ompl_ns.class_('Benchmark')
         self.replace_member_function(benchmark_cls.member_function('saveResultsToStream'))
-        for constructor in benchmark_cls.constructors(arg_types=[None, f"{self.string_decl} const &"]):
+        for constructor in benchmark_cls.constructors(arg_types=[None, "::std::string const &"]):
             constructor.add_transformation(FT.input(1))
 
         self.ompl_ns.member_functions('addPlannerAllocator').exclude()

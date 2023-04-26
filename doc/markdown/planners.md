@@ -88,12 +88,14 @@ Planners in this category only accounts for the geometric and kinematic constrai
   - [Batch Informed Trees (BIT*)](\ref gBITstar)<br> An anytime asymptotically optimal algorithm that uses heuristics to order and bound the search for optimal solutions. _It uses the general cost framework._
   - [Advanced BIT* (ABIT*)](\ref gABITstar)<br> An extension to BIT* that uses advanced graph-search techniques to find initial solutions faster. _It uses the general cost framework._
   - [Adaptively Informed Trees (AIT*)](\ref gAITstar)<br> An anytime asymptotically optimal algorithm that simultaneously estimates and exploits problem-specific heuristics. _It uses the general cost framework._
+  - [Effort Informed Trees (EIT*)](\ref gEITstar)<br> An anytime asymptotically optimal algorithm that leverages multiple sources of information to improve performance. _It uses the general cost framework._
   - [Lower Bound Tree RRT (LBTRRT)](\ref gLBTRRT)<br> An asymptotically near-optimal version of RRT.
   - [Sparse Stable RRT](\ref gSST)<br> SST is an asymptotically near-optimal incremental version of RRT.
   - [Transition-based RRT (T-RRT)](\ref gTRRT)<br> T-RRT does not give any hard optimality guarantees, but tries to find short, low-cost paths. _It uses the general cost framework._
   - [SPARS](\ref gSPARS)<br> An asymptotically near-optimal roadmap-based planner.
   - [SPARS2](\ref gSPARStwo)<br> An asymptotically near-optimal roadmap-based planner.
   - [FMT*](\ref gFMT)<br> An asymptotically optimal tree-based planner.
+  - [ST-RRT*](\ref gSTRRTstar)<br> a bidirectional, time-optimal planner for planning in space-time.
   - [CForest](\ref gCForest)<br> A meta-planner that runs several instances of asymptotically optimal planners in different threads. When one thread finds a better solution path, the states along the path are passed on to the other threads.
   - [AnytimePathShortening (APS)](\ref gAPS)<br> APS is a generic wrapper around one or more geometric motion planners that repeatedly applies [shortcutting](\ref ompl::geometric::PathSimplifier) and [hybridization](\ref ompl::geometric::PathHybridization) to a set of solution paths. Any number and combination of planners can be specified, each is run in a separate thread.
 .
