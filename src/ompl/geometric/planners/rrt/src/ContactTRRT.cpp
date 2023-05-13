@@ -336,8 +336,8 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         // bool is_valid = perBranchTransitionTest(nearMotion, randMotionDistance, childCost);
         if (!is_valid)
         {
-            saveData();
-            setMaxTemp(nearMotion->vthresh.mean());
+            // saveData();
+            // setMaxTemp(nearMotion->vthresh.mean());
             continue;
         }
         // Minimum Expansion Control
@@ -368,7 +368,7 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         // OMPL_INFORM("worstCost_.value(): %f", worstCost_.value());
         // OMPL_INFORM("motion->cost.value(): %f", motion->cost.value());
 
-        if (opt_->isCostBetterThan(motion->cost, bestCost_))  // motion->cost is better than the existing best
+        if (opt_->isCostBetterThan(motion->cost, bestCost_))   // motion->cost is better than the existing best
             bestCost_ = motion->cost;
         if (opt_->isCostBetterThan(worstCost_, motion->cost))  // motion->cost is worse than the existing worst
             worstCost_ = motion->cost;
@@ -382,9 +382,9 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         bool isSatisfied = goal->isSatisfied(motion->state, &distToGoal);
         OMPL_INFORM("distToGoal: %f", distToGoal);
 
-        setMinDistToGoal(distToGoal);
-        setMaxTemp(temp_);
-        saveData();
+        // setMinDistToGoal(distToGoal);
+        // setMaxTemp(temp_);
+        // saveData();
         if (isSatisfied)
         {
             approxDifference = distToGoal;  // the tolerated error distance btw state and goal
