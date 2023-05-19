@@ -559,7 +559,7 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestWedighted(Motion *parent
     Eigen::VectorXd vdiff(vnew - vnear);
 
     Eigen::VectorXd &vtemp = parentMotion->vtemp;
-    Eigen::VectorXd &vnumfail = parentMotion->vnumfail;
+    // Eigen::VectorXd &vnumfail = parentMotion->vnumfail;
 
     bool is_valid = true;
     double prev_cost = 0;
