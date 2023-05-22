@@ -44,20 +44,20 @@ namespace ompl
                 return false;
             }
 
+            // ompl::base::Cost motionCostHeuristic(const State *s1, const State *s2) const
+            // {
+            //     return ompl::base::Cost(si_->distance(s1, s2));
+            // }
+
             ompl::base::Cost motionCost(const State *s1, const State *s2) const override
             {
-                // std::cout << "motionCost" << std::endl;
                 const base::StateSpacePtr &space = si_->getStateSpace();
                 std::size_t vfdim = space->getValueLocations().size();
                 std::size_t numSegments = space->validSegmentCount(s1, s2);
                 std::vector<ompl::base::State *> interp;
-                // std::cout << "getMotionStates" << std::endl;
-
                 si_->getMotionStates(s1, s2, interp, numSegments - 1, true, true);
-
                 double total_cost = 0;
                 double dist = si_->distance(s1, s2);
-                // std::cout << "interp.size(): " << interp.size() << std::endl;
                 for (std::size_t i = 0; i < interp.size() - 1; i++)
                 {
                     double unit_cost = contactCalc_(interp[i]);
