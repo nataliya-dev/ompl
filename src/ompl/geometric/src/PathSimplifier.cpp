@@ -225,13 +225,13 @@ bool ompl::geometric::PathSimplifier::shortcutPath(PathGeometric &path, unsigned
         base::State *s0 = nullptr;
         int index0 = -1;
         double t0 = 0.0;
-        double distTo0 = rng_.uniformReal(0.0, dists.back());  // sample a random point (p0) along the path
+        double distTo0 = rng_.uniformReal(0.0, dists.back());       // sample a random point (p0) along the path
         auto pit =
             std::lower_bound(dists.begin(), dists.end(), distTo0);  // find the NEXT waypoint after the random point
         int pos0 = pit == dists.end() ? dists.size() - 1 :
                                         pit - dists.begin();  // get the index of the NEXT waypoint after the point
 
-        if (pos0 == 0 || dists[pos0] - distTo0 < threshold)  // snap to the NEXT waypoint
+        if (pos0 == 0 || dists[pos0] - distTo0 < threshold)   // snap to the NEXT waypoint
             index0 = pos0;
         else
         {
@@ -252,7 +252,7 @@ bool ompl::geometric::PathSimplifier::shortcutPath(PathGeometric &path, unsigned
         int pos1 = pit == dists.end() ? dists.size() - 1 :
                                         pit - dists.begin();  // get the index of the NEXT waypoint after the point
 
-        if (pos1 == 0 || dists[pos1] - distTo1 < threshold)  // snap to the NEXT waypoint
+        if (pos1 == 0 || dists[pos1] - distTo1 < threshold)   // snap to the NEXT waypoint
             index1 = pos1;
         else
         {
@@ -757,7 +757,7 @@ bool ompl::geometric::PathSimplifier::simplify(PathGeometric &path, const base::
             unsigned int times = 0;
             do
             {
-                bool shortcut = shortcutPath(path);  // split path segments, not just vertices
+                bool shortcut = shortcutPath(path);            // split path segments, not just vertices
                 bool better_goal =
                     gsr_ ? findBetterGoal(path, ptc) : false;  // Try to connect the path to a closer goal
 
@@ -786,17 +786,17 @@ bool ompl::geometric::PathSimplifier::simplify(PathGeometric &path, const base::
         }
 
         // try a randomized step of connecting vertices
-        if (ptc == false || atLeastOnce)
-            tryMore = reduceVertices(path);
+        // if (ptc == false || atLeastOnce)
+        //     tryMore = reduceVertices(path);
 
         // try to collapse close-by vertices
-        if (ptc == false || atLeastOnce)
-            collapseCloseVertices(path);
+        // if (ptc == false || atLeastOnce)
+        //     collapseCloseVertices(path);
 
         // try to reduce verices some more, if there is any point in doing so
-        unsigned int times = 0;
-        while ((ptc == false || atLeastOnce) && tryMore && ++times <= 5)
-            tryMore = reduceVertices(path);
+        // unsigned int times = 0;
+        // while ((ptc == false || atLeastOnce) && tryMore && ++times <= 5)
+        //     tryMore = reduceVertices(path);
 
         if ((ptc == false || atLeastOnce) && si_->getStateSpace()->isMetricSpace())
         {
@@ -894,7 +894,7 @@ bool ompl::geometric::PathSimplifier::findBetterGoal(PathGeometric &path, const 
             // Snap the random point to the nearest vertex, if within the threshold
             if (t - (*start) < threshold)  // snap to the starting waypoint
                 endIndex = startIndex;
-            if ((*end) - t < threshold)  // snap to the ending waypoint
+            if ((*end) - t < threshold)    // snap to the ending waypoint
                 startIndex = endIndex;
 
             // Compute the state value and the accumulated cost up to that state

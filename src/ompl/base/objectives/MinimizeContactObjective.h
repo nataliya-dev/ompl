@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "ompl/base/OptimizationObjective.h"
+#include "ompl/base/samplers/informed/PathLengthDirectInfSampler.h"
 
 namespace ompl
 {
@@ -47,6 +48,14 @@ namespace ompl
             // ompl::base::Cost motionCostHeuristic(const State *s1, const State *s2) const
             // {
             //     return ompl::base::Cost(si_->distance(s1, s2));
+            // }
+
+            // ompl::base::InformedSamplerPtr allocInformedStateSampler(const ProblemDefinitionPtr &probDefn,
+            //                                                          unsigned int maxNumberCalls) const
+            // {
+            //     // Make the direct path-length informed sampler and return. If OMPL was compiled with Eigen, a direct
+            //     // version is available, if not a rejection-based technique can be used
+            //     return std::make_shared<PathLengthDirectInfSampler>(probDefn, maxNumberCalls);
             // }
 
             ompl::base::Cost motionCost(const State *s1, const State *s2) const override
