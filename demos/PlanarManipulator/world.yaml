@@ -1,0 +1,19 @@
+name: corridor
+bounds:
+  x:
+    lower: 0
+    upper: 1.25
+  y:
+    lower: 0
+    upper: 1.25
+obstacles:
+  - polygon:
+      - vertex: (0,0.411099)
+      - vertex: (0.213901,0.411099)
+      - vertex: (0.213901,0.838901)
+      - vertex: (0,0.838901)
+  - polygon:
+      - vertex: (0.625,0.411099)
+      - vertex: (1.25,0.411099)
+      - vertex: (1.25,0.838901)
+      - vertex: (0.625,0.838901)
