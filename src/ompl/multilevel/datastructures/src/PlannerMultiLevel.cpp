@@ -63,7 +63,8 @@ void PlannerMultiLevel::clear()
 {
     BaseT::clear();
     solutions_.clear();
-    pdef_->clearSolutionPaths();
+    if (pdef_)
+        pdef_->clearSolutionPaths();
     for (unsigned int k = 0; k < pdefVec_.size(); k++)
     {
         pdefVec_.at(k)->clearSolutionPaths();

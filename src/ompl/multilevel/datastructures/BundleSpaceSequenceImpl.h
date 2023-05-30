@@ -190,8 +190,8 @@ ompl::multilevel::BundleSpaceSequence<T>::solve(const ompl::base::PlannerTermina
         if (priorityQueue_.size() <= currentBundleSpaceLevel_)
             priorityQueue_.push(kBundle);
 
-        ompl::base::PlannerTerminationCondition ptcOrSolutionFound(
-            [this, &ptc] { return ptc || foundKLevelSolution_; });
+        ompl::base::PlannerTerminationCondition ptcOrSolutionFound([this, &ptc]
+                                                                   { return ptc || foundKLevelSolution_; });
 
         while (!ptcOrSolutionFound())
         {
@@ -270,9 +270,9 @@ void ompl::multilevel::BundleSpaceSequence<T>::setProblemDefinition(const ompl::
 
     assert(bundleSpaces_.size() == siVec_.size());
 
-    //#########################################################################
-    // Check if goal type is projectable
-    //#########################################################################
+    // #########################################################################
+    //  Check if goal type is projectable
+    // #########################################################################
     ompl::base::GoalType type = pdef_->getGoal()->getType();
     if (!(type == ompl::base::GoalType::GOAL_STATE || type == ompl::base::GoalType::GOAL_STATES))
     {
@@ -281,9 +281,9 @@ void ompl::multilevel::BundleSpaceSequence<T>::setProblemDefinition(const ompl::
         throw ompl::Exception("Multilevel framework does not support provided goal specs.");
     }
 
-    //#########################################################################
-    // Iterate through all levels and project from the last level down
-    //#########################################################################
+    // #########################################################################
+    //  Iterate through all levels and project from the last level down
+    // #########################################################################
     ompl::base::GoalSampleableRegion *goalRegion =
         static_cast<ompl::base::GoalSampleableRegion *>(pdef_->getGoal().get());
     double epsilon = goalRegion->getThreshold();

@@ -168,7 +168,8 @@ void BundleSpace::clear()
     hasSolution_ = false;
     firstRun_ = true;
 
-    pdef_->clearSolutionPaths();
+    if (pdef_)
+        pdef_->clearSolutionPaths();
 }
 
 void BundleSpace::sanityChecks() const
@@ -480,5 +481,5 @@ namespace ompl
             bundleSpace.print(out);
             return out;
         }
-    }
-}
+    }  // namespace multilevel
+}  // namespace ompl
