@@ -56,6 +56,7 @@
 #include <ompl/multilevel/datastructures/projections/SE2RN_R2.h>
 
 #include <ompl/multilevel/datastructures/projections/RN_RM.h>
+#include <ompl/multilevel/datastructures/projections/ModelBased_RN_RM.h>
 #include <ompl/multilevel/datastructures/projections/RNSO2_RN.h>
 #include <ompl/multilevel/datastructures/projections/SO2N_SO2M.h>
 
@@ -244,6 +245,10 @@ ProjectionPtr ProjectionFactory::makeProjection(const StateSpacePtr &Bundle, con
     {
         component = std::make_shared<Projection_SO2N_SO2M>(Bundle, Base);
     }
+    else if (type == PROJECTION_MODELBASED_RN_RM)
+    {
+        component = std::make_shared<Projection_ModelBased_RN_RM>(Bundle, Base);
+    }
     else
     {
         OMPL_ERROR("NYI: %d", type);
@@ -282,6 +287,10 @@ ProjectionType ProjectionFactory::identifyProjectionType(const StateSpacePtr &Bu
     if (isMapping_RNSO2_to_RN(Bundle, Base))
     {
         return PROJECTION_RNSO2_RN;
+    }
+    if (isMapping_ModelBased_RN_to_RM(Bundle, Base))
+    {
+        return PROJECTION_MODELBASED_RN_RM;
     }
 
     // SE3 ->
@@ -384,6 +393,28 @@ bool ProjectionFactory::isMapping_Identity(const StateSpacePtr &Bundle, const St
 
 bool ProjectionFactory::isMapping_RN_to_RM(const StateSpacePtr &Bundle, const StateSpacePtr &Base)
 {
+    if (Bundle->isCompound())
+        return false;
+
+    if (Bundle->getType() == base::STATE_SPACE_REAL_VECTOR)
+    {
+        unsigned int n = Bundle->getDimension();
+        if (Base->getType() == base::STATE_SPACE_REAL_VECTOR)
+        {
+            unsigned int m = Base->getDimension();
+            if (n > m && m > 0)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool ProjectionFactory::isMapping_ModelBased_RN_to_RM(const StateSpacePtr &Bundle, const StateSpacePtr &Base)
+{
+    // TODO(nn)
+    return false;
     if (Bundle->isCompound())
         return false;
 

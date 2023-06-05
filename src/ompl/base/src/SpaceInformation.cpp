@@ -110,23 +110,23 @@ void ompl::base::SpaceInformation::setDefaultMotionValidator()
 {
     if (dynamic_cast<ReedsSheppStateSpace *>(stateSpace_.get()))
     {
-        std::cout << "ReedsSheppStateSpace" << std::endl;
+        OMPL_INFORM("Motion validator set to: ReedsSheppStateSpace");
         motionValidator_ = std::make_shared<ReedsSheppMotionValidator>(this);
     }
     else if (dynamic_cast<DubinsStateSpace *>(stateSpace_.get()))
     {
-        std::cout << "DubinsMotionValidator" << std::endl;
+        OMPL_INFORM("Motion validator set to: DubinsMotionValidator");
         motionValidator_ = std::make_shared<DubinsMotionValidator>(this);
     }
     else if (dynamic_cast<ConstrainedStateSpace *>(stateSpace_.get()))
     {
-        std::cout << "ConstrainedMotionValidator" << std::endl;
+        OMPL_INFORM("Motion validator set to: ConstrainedMotionValidator");
         motionValidator_ = std::make_shared<ConstrainedMotionValidator>(this);
     }
 
     else
     {
-        std::cout << "DiscreteMotionValidator" << std::endl;
+        OMPL_INFORM("Motion validator set to: DiscreteMotionValidator");
         motionValidator_ = std::make_shared<DiscreteMotionValidator>(this);
     }
 }

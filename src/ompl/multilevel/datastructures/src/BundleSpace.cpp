@@ -222,6 +222,7 @@ void BundleSpace::setProjection(ProjectionPtr projection)
         OMPL_ERROR("Projection is nullptr.");
         throw "Projection is nullptr.";
     }
+    sanityChecks();
 }
 
 ProjectionPtr BundleSpace::getProjection() const

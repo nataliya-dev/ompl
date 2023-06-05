@@ -71,12 +71,21 @@ ompl::multilevel::BundleSpaceSequence<T>::BundleSpaceSequence(std::vector<ompl::
 
     // None projection (from last state to empty)
     bundleSpaces_.front()->makeProjection();
-    for (unsigned int k = 1; k < bundleSpaces_.size(); k++)
+    for (std::size_t k = 1; k < bundleSpaces_.size(); k++)
     {
         BundleSpace *bk = bundleSpaces_.at(k);
         bk->setProjection(projVec.at(k - 1));
         // need to precompute the location helper functions to utilize
         //"copyToReals" inside the projection function
+
+        // why setup only called from k=1? fix applied with next loop
+        // bk->getBundle()->setup();
+    }
+
+    for (std::size_t k = 0; k < bundleSpaces_.size(); k++)
+    {
+        BundleSpace *bk = bundleSpaces_.at(k);
+        std::cout << "bk->getBundle()->setup(), k: " << k << std::endl;
         bk->getBundle()->setup();
     }
 }
@@ -85,7 +94,7 @@ template <class T>
 void ompl::multilevel::BundleSpaceSequence<T>::declareBundleSpaces(bool guessProjection)
 {
     T::resetCounter();
-    for (unsigned int k = 0; k < siVec_.size(); k++)
+    for (std::size_t k = 0; k < siVec_.size(); k++)
     {
         T *parent = nullptr;
         if (k > 0)
@@ -93,6 +102,7 @@ void ompl::multilevel::BundleSpaceSequence<T>::declareBundleSpaces(bool guessPro
 
         T *ss = new T(siVec_.at(k), parent);
         bundleSpaces_.push_back(ss);
+
         static_cast<BundleSpace *>(bundleSpaces_.back())->setLevel(k);
     }
     stopAtLevel_ = bundleSpaces_.size();
@@ -274,7 +284,8 @@ void ompl::multilevel::BundleSpaceSequence<T>::setProblemDefinition(const ompl::
     //  Check if goal type is projectable
     // #########################################################################
     ompl::base::GoalType type = pdef_->getGoal()->getType();
-    if (!(type == ompl::base::GoalType::GOAL_STATE || type == ompl::base::GoalType::GOAL_STATES))
+    if (!(type == ompl::base::GoalType::GOAL_STATE || type == ompl::base::GoalType::GOAL_STATES ||
+          type == ompl::base::GoalType::GOAL_LAZY_SAMPLES))
     {
         OMPL_ERROR("If you want to use other goal classes than \"GoalSampleableRegion\", you need to specify them "
                    "manually for each SpaceInformationPtr in the hierarchy.");
@@ -312,13 +323,12 @@ void ompl::multilevel::BundleSpaceSequence<T>::setProblemDefinition(const ompl::
         if (type == ompl::base::GoalType::GOAL_STATE)
         {
             ompl::base::GoalState *goal = static_cast<ompl::base::GoalState *>(pdefParent->getGoal().get());
-
             const ompl::base::State *sGoalParent = goal->getState();
             ompl::base::State *sGoalChild = siChild->allocState();
             parent->getProjection()->project(sGoalParent, sGoalChild);
             pdefChild->setGoalState(sGoalChild, epsilon);
         }
-        else if (type == ompl::base::GoalType::GOAL_STATES)
+        else if (type == ompl::base::GoalType::GOAL_LAZY_SAMPLES || type == ompl::base::GoalType::GOAL_STATES)
         {
             ompl::base::GoalStates *goal = static_cast<ompl::base::GoalStates *>(pdefParent->getGoal().get());
             unsigned int N = goal->getStateCount();
@@ -330,6 +340,7 @@ void ompl::multilevel::BundleSpaceSequence<T>::setProblemDefinition(const ompl::
             {
                 const ompl::base::State *sGoalParent = goal->getState(j);
                 ompl::base::State *sGoalChild = siChild->allocState();
+
                 parent->getProjection()->project(sGoalParent, sGoalChild);
                 goalStates->addState(sGoalChild);
             }

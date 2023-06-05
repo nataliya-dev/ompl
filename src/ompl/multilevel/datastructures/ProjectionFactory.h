@@ -51,7 +51,7 @@ namespace ompl
         /** \brief Forward declaration of ompl::multilevel::Projection */
         OMPL_CLASS_FORWARD(Projection);
         /// @endcond
-    }
+    }  // namespace multilevel
     namespace multilevel
     {
         /* \brief If no projection operator is provided, you can invoke this
@@ -142,6 +142,7 @@ namespace ompl
              * whereby \f$ X = \{\mathrm{SO}(2),\mathrm{SO}(3),\mathrm{SE}(2),\mathrm{SE}(3)\} \f$ */
             bool isMapping_XRN_to_XRM(const base::StateSpacePtr &, const base::StateSpacePtr &,
                                       const base::StateSpaceType);
+            bool isMapping_ModelBased_RN_to_RM(const base::StateSpacePtr &, const base::StateSpacePtr &);
 
             /** \brief Check if mapping is
              * \f$ X\times \mathbb{R}^N \f$ to \f$ X \f$
@@ -152,6 +153,6 @@ namespace ompl
             /** \brief Estimate number of components on state space */
             int GetNumberOfComponents(const base::StateSpacePtr &space);
         };
-    }
-}
+    }  // namespace multilevel
+}  // namespace ompl
 #endif

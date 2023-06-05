@@ -106,6 +106,8 @@ namespace ompl
              * space T) */
             PROJECTION_TASK_SPACE = 19,
 
+            PROJECTION_MODELBASED_RN_RM = 20,
+
             /** \brief Compound projection */
             PROJECTION_COMPOUND = -2,
 
@@ -113,6 +115,6 @@ namespace ompl
             PROJECTION_UNKNOWN = -1
         };
     }
-}
+}  // namespace ompl
 
 #endif
