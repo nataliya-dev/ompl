@@ -90,6 +90,7 @@ void Projection_ModelBased_RN_RM::lift(const ompl::base::State *xBase, const omp
 
 ompl::base::StateSpacePtr Projection_ModelBased_RN_RM::computeFiberSpace()
 {
+    // TODO(nn)
     unsigned int N1 = getDimension();
     unsigned int N0 = getBaseDimension();
     unsigned int NX = N1 - N0;

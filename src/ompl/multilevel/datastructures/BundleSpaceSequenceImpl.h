@@ -85,7 +85,7 @@ ompl::multilevel::BundleSpaceSequence<T>::BundleSpaceSequence(std::vector<ompl::
     for (std::size_t k = 0; k < bundleSpaces_.size(); k++)
     {
         BundleSpace *bk = bundleSpaces_.at(k);
-        std::cout << "bk->getBundle()->setup(), k: " << k << std::endl;
+        OMPL_DEBUG("bk->getBundle()->setup(), %d: ", k);
         bk->getBundle()->setup();
     }
 }

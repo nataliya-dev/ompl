@@ -778,7 +778,7 @@ bool ompl::geometric::PathSimplifier::simplify(PathGeometric &path, const base::
                     OMPL_WARN("Solution path may slightly touch on an invalid region of the state space");
                 }
                 else if (!p.first)
-                    OMPL_DEBUG("The solution path was slzzzightly touching on an invalid region of the state space, "
+                    OMPL_DEBUG("The solution path was slightly touching on an invalid region of the state space, "
                                "but "
                                "it was "
                                "successfully fixed.");
