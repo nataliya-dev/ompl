@@ -45,5 +45,8 @@ ompl::multilevel::BundleSpaceImportanceUniform::BundleSpaceImportanceUniform(Bun
 double ompl::multilevel::BundleSpaceImportanceUniform::eval()
 {
     double N = (double)bundleSpaceGraph_->getNumberOfVertices();
+
+    // std::cout << "Number of vertices: " << N << ", level: " << bundleSpaceGraph_->getLevel() + 1
+    //           << ", bestCost: " << bundleSpaceGraph_->bestCost_.value() << std::endl;
     return 1.0 / (N + 1);
 }

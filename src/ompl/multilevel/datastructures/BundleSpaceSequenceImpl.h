@@ -185,6 +185,111 @@ void ompl::multilevel::BundleSpaceSequence<T>::clear()
     foundKLevelSolution_ = false;
 }
 
+// template <class T>
+// ompl::base::PlannerStatus
+// ompl::multilevel::BundleSpaceSequence<T>::solve(const ompl::base::PlannerTerminationCondition &ptc)
+// {
+//     ompl::time::point t_start = ompl::time::now();
+
+//     // ompl::base::PlannerTerminationCondition ptc([this, &ptc] { return ptc });
+
+//     std::cout << "priorityQueue_.size(): " << priorityQueue_.size() << std::endl;
+//     std::cout << "stopAtLevel_: " << stopAtLevel_ << std::endl;
+
+//     std::vector<bool> sol_found_;
+
+//     if (priorityQueue_.size() == 0)
+//     {
+//         for (std::size_t k = 0; k < bundleSpaces_.size(); k++)
+//         {
+//             std::cout << "k: " << k << std::endl;
+//             BundleSpace *kBundle = static_cast<BundleSpace *>(bundleSpaces_.at(k));
+//             std::cout << "priorityQueue_.push(kBundle)" << std::endl;
+//             priorityQueue_.push(kBundle);
+//             sol_found_.emplace_back(false);
+//             // ompl::base::PathPtr sol_k;
+//             // std::cout << "solutions_.push_back(sol_k);" << std::endl;
+//             // solutions_.push_back(sol_k);
+//         }
+//     }
+
+//     // bool foundKLevelSolution = false;
+
+//     BundleSpace *jBundle;
+//     // BundleSpaceGraph *bsg = dynamic_cast<BundleSpaceGraph *>(bundleSpaces_.at(currentBundleSpaceLevel_));
+
+//     while (!ptc())
+//     {
+//         jBundle = priorityQueue_.top();
+//         currentBundleSpaceLevel_ = jBundle->getLevel();
+//         priorityQueue_.pop();
+
+//         if (!sol_found_.at(currentBundleSpaceLevel_))
+//         {
+//             while (!jBundle->hasSolution())
+//                 jBundle->grow();
+//         }
+//         else
+//         {
+//             jBundle->grow();
+//         }
+
+//         if (sol_found_.at(currentBundleSpaceLevel_) == false)
+//         {
+//             sol_found_.at(currentBundleSpaceLevel_) = true;
+
+//             OMPL_DEBUG("-- First solution on BundleSpace level %d", currentBundleSpaceLevel_);
+//             ompl::base::PathPtr sol_k;
+//             jBundle->getSolution(sol_k);
+//             ompl::base::PlannerSolution psol(sol_k);
+//             std::string lvl_name = getName() + " LvL" + std::to_string(jBundle->getLevel());
+//             psol.setPlannerName(lvl_name);
+//             jBundle->getProblemDefinition()->clearSolutionPaths();
+//             jBundle->getProblemDefinition()->addSolutionPath(psol);
+//         }
+//         double t_k_end = ompl::time::seconds(ompl::time::now() - t_start);
+//         OMPL_DEBUG("Level %d/%d after %f seconds.", currentBundleSpaceLevel_ + 1, stopAtLevel_, t_k_end);
+
+//         bool isInfeasible = jBundle->isInfeasible();
+//         if (isInfeasible)
+//         {
+//             double t_end = ompl::time::seconds(ompl::time::now() - t_start);
+//             OMPL_DEBUG("Infeasibility detected after %f seconds (level %d).", t_end, currentBundleSpaceLevel_);
+//             return ompl::base::PlannerStatus::INFEASIBLE;
+//         }
+
+//         priorityQueue_.push(jBundle);
+//     }
+
+//     for (std::size_t k = 0; k < bundleSpaces_.size(); k++)
+//     {
+//         BundleSpace *kBundle = static_cast<BundleSpace *>(bundleSpaces_.at(k));
+//         if (!kBundle->hasSolution())
+//         {
+//             OMPL_DEBUG("-- Planner failed finding solution on BundleSpace level %d", k);
+//             return ompl::base::PlannerStatus::TIMEOUT;
+//         }
+//         else
+//         {
+//             OMPL_DEBUG("-- Planner found solution on BundleSpace level %d", k);
+//             ompl::base::PathPtr sol_k;
+//             kBundle->getSolution(sol_k);
+//             ompl::base::PlannerSolution psol(sol_k);
+//             std::string lvl_name = getName() + " LvL" + std::to_string(kBundle->getLevel());
+//             psol.setPlannerName(lvl_name);
+//             kBundle->getProblemDefinition()->clearSolutionPaths();
+//             kBundle->getProblemDefinition()->addSolutionPath(psol);
+//         }
+//     }
+
+//     ompl::base::PathPtr sol;
+//     ompl::base::PlannerSolution psol(sol);
+//     static_cast<BundleSpace *>(bundleSpaces_.back())->getProblemDefinition()->getSolution(psol);
+//     pdef_->addSolutionPath(psol);
+
+//     return ompl::base::PlannerStatus::EXACT_SOLUTION;
+// }
+
 template <class T>
 ompl::base::PlannerStatus
 ompl::multilevel::BundleSpaceSequence<T>::solve(const ompl::base::PlannerTerminationCondition &ptc)

@@ -217,6 +217,8 @@ void ompl::multilevel::QRRTStarImpl::grow()
             }
         }
 
+        // OMPL_INFORM("Best cost %f (level %d).", bestCost_, getLevel());
+
         // (8) check if this sample satisfies the goal
         double dist = 0.0;
         bool satisfied = pdef_->getGoal()->isSatisfied(q_new->state, &dist);
