@@ -36,7 +36,7 @@
 
 #ifndef OMPL_BASE_STATE_
 #define OMPL_BASE_STATE_
-
+#include <vector>
 #include <boost/concept_check.hpp>
 
 namespace ompl

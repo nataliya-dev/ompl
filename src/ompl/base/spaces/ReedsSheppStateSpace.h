@@ -146,7 +146,7 @@ namespace ompl
             ~ReedsSheppMotionValidator() override = default;
             bool checkMotion(const State *s1, const State *s2) const override;
             bool checkMotion(const State *s1, const State *s2, std::pair<State *, double> &lastValid) const override;
-            bool checkTrajectorySoFar(const State *, const State *) const override {
+            bool checkTrajectorySoFar(std::vector<base::State *>) const override {
                 throw ompl::Exception("ReedsSheppStateSpace::checkTrajectorySoFar", "not implemented");
             }
 

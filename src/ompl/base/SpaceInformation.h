@@ -430,9 +430,9 @@ namespace ompl
             bool isSetup() const;
 
             /** \brief Check if the trajectory so far (start to \e s1 to \e s2) is valid, using the MotionValidator.*/
-            virtual bool checkTrajectorySoFar(const State *, const State *) const
+            virtual bool checkTrajectorySoFar(std::vector<base::State *> trajectory_so_far) const
             {
-                throw ompl::Exception("SpaceInformation::checkTrajectorySoFar", "not implemented");
+                return motionValidator_->checkTrajectorySoFar(trajectory_so_far);
             }
 
         protected:

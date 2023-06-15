@@ -99,7 +99,7 @@ void ompl::geometric::SimpleSetup::setGoalState(const base::ScopedState<> &goal,
 {
     pdef_->setGoalState(goal, threshold);
 
-    // force setup to rerun 
+    // force setup to rerun
     configured_ = false;
 }
 

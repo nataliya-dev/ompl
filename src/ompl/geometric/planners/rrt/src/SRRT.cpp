@@ -91,6 +91,7 @@ ompl::base::PlannerStatus ompl::geometric::SRRT::solve(const base::PlannerTermin
     base::State *rstate = rmotion->state;
     base::State *xstate = si_->allocState();
 
+MAIN_LOOP:
     while (!ptc)
     {
         /* sample random state (with goal biasing) */
@@ -111,8 +112,17 @@ ompl::base::PlannerStatus ompl::geometric::SRRT::solve(const base::PlannerTermin
             dstate = xstate;
         }
 
-        if (si_->checkTrajectorySoFar(nmotion->state, dstate))
+        if (si_->checkMotion(nmotion->state, dstate))
         {
+            std::vector<base::State *> trajectory_so_far;
+            Motion *last_motion = nmotion;
+            while (last_motion != nullptr)
+            {
+                trajectory_so_far.push_back(last_motion->state);
+                last_motion = last_motion->parent;
+            }
+            std::reverse(trajectory_so_far.begin(), trajectory_so_far.end());
+
             if (addIntermediateStates_)
             {
                 std::vector<base::State *> states;
@@ -123,21 +133,42 @@ ompl::base::PlannerStatus ompl::geometric::SRRT::solve(const base::PlannerTermin
 
                 for (std::size_t i = 1; i < states.size(); ++i)
                 {
+                    // std::cout << "111 Printing State: " << std::endl;
+                    // si_->getStateSpace()->printState(states[i], std::cout);
+
+                    trajectory_so_far.push_back(states[i]);
+
+                    if (!si_->checkTrajectorySoFar(trajectory_so_far))
+                    {
+                        goto MAIN_LOOP;
+                    }
+                }
+
+                for (std::size_t i = 1; i < states.size(); ++i)
+                {
                     auto *motion = new Motion;
                     motion->state = states[i];
                     motion->parent = nmotion;
                     nn_->add(motion);
-
                     nmotion = motion;
                 }
             }
             else
             {
+                // std::cout << "222 Printing State: " << std::endl;
+                // si_->getStateSpace()->printState(dstate, std::cout);
+                // si_->getStateSpace()->printSettings(std::cout);
+
+                trajectory_so_far.push_back(dstate);
+                if (!si_->checkTrajectorySoFar(trajectory_so_far))
+                {
+                    goto MAIN_LOOP;
+                }
+
                 auto *motion = new Motion(si_);
                 si_->copyState(motion->state, dstate);
                 motion->parent = nmotion;
                 nn_->add(motion);
-
                 nmotion = motion;
             }
 

@@ -34,6 +34,12 @@
 
 /* Author: Ioan Sucan */
 
+// #include <kdl/chainiksolverpos_nr_jl.hpp>
+// #include <kdl/chainiksolvervel_pinv.hpp>
+// #include <kdl/frames.hpp>
+// #include <kdl/jntarray.hpp>
+// #include <kdl_parser/kdl_parser.hpp>
+
 #include "ompl/base/DiscreteMotionValidator.h"
 #include "ompl/util/Exception.h"
 #include <queue>
@@ -144,10 +150,55 @@ bool ompl::base::DiscreteMotionValidator::checkMotion(const State *s1, const Sta
     return result;
 }
 
-bool ompl::base::DiscreteMotionValidator::checkTrajectorySoFar(const State *s1, const State *s2) const
+bool ompl::base::DiscreteMotionValidator::checkTrajectorySoFar(std::vector<base::State *> trajectory_so_far) const
 {
-    bool result = true;
     OMPL_INFORM("Check Trajectory So Far");
-    result = checkMotion(s1, s2);
-    return result;
+
+    std::vector<std::vector<double>> trajectory_in_cartesian;
+    for (int i=0; i<trajectory_so_far.size(); i++){
+        base::State *state = trajectory_so_far[i];
+        std::vector<double> joint_values;
+        si_->getStateSpace()->copyToReals(joint_values, state);
+
+        trajectory_in_cartesian.push_back(joint_values);
+    }
+    return true;
 }
+
+// std::array<double, 7> fk(std::array<double, 7> q) {
+//   /*
+//    * Calculate End Effector Pose from Joint Angles using KDL
+//    * @param q: joint angles
+//    * @param urdf_path: path to urdf file
+//    * @return: end effector pose
+//    */
+
+
+//   KDL::Tree my_tree;
+//   kdl_parser::treeFromFile("/home/gilberto/npm/catkin_ws/src/panda_sim_real_interface/assets/panda.urdf", my_tree);
+//   KDL::Chain chain;
+
+//   my_tree.getChain("panda_link0", "panda_hand", chain);
+//   KDL::JntArray jointpositions = KDL::JntArray(chain.getNrOfJoints());
+//   for (int i = 0; i < 7; i++) {
+//     jointpositions(i) = q[i];
+//   }
+
+//   KDL::Frame cartpos;
+//   KDL::ChainFkSolverPos_recursive fksolver = KDL::ChainFkSolverPos_recursive(chain);
+//   bool kinematics_status;
+//   kinematics_status = fksolver.JntToCart(jointpositions, cartpos);
+
+//   if (kinematics_status >= 0) {
+//     std::array<double, 7> ee_pose;
+//     for (int i = 0; i < 3; i++) {
+//       ee_pose[i] = cartpos.p[i];
+//     }
+//     for (int i = 0; i < 4; i++) {
+//       ee_pose[i + 3] = cartpos.M.data[i];
+//     }
+//     return ee_pose;
+//   } else {
+//     throw ompl::Exception("Could not calculate forward kinematics");
+//   }
+// }

@@ -67,7 +67,7 @@ namespace ompl
 
             bool checkMotion(const State *s1, const State *s2, std::pair<State *, double> &lastValid) const override;
 
-            bool checkTrajectorySoFar(const State *s1, const State *s2) const override;
+            bool checkTrajectorySoFar(std::vector<ompl::base::State *> trajectory_so_far) const override;
 
         private:
             StateSpace *stateSpace_;

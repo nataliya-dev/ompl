@@ -101,7 +101,7 @@ public:
         throw ompl::Exception("SpaceTimeMotionValidator::checkMotion", "not implemented");
     }
 
-    bool checkTrajectorySoFar(const ob::State *, const ob::State *) const override {
+    bool checkTrajectorySoFar(std::vector<ompl::base::State *> ) const override {
         throw ompl::Exception("SpaceTimeMotionValidator::checkTrajectorySoFar", "not implemented");
     }
 

@@ -131,7 +131,7 @@ namespace ompl
 
             /** \brief Check if the Check if the trajectory so far (from start to \e s1 to \e s2) is valid. This
                function assumes \e s1 is valid. **/
-            virtual bool checkTrajectorySoFar(const State *s1, const State *s2) const = 0;
+            virtual bool checkTrajectorySoFar(std::vector<base::State *> trajectory_so_far) const = 0;
 
         protected:
             /** \brief The instance of space information this state validity checker operates on */
