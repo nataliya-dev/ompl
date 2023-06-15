@@ -179,6 +179,9 @@ namespace ompl
             ~DubinsMotionValidator() override = default;
             bool checkMotion(const State *s1, const State *s2) const override;
             bool checkMotion(const State *s1, const State *s2, std::pair<State *, double> &lastValid) const override;
+            bool checkTrajectorySoFar(const State *, const State *) const override {
+                throw ompl::Exception("DubinsStateSpace::checkTrajectorySoFar", "not implemented");
+            }
 
         private:
             DubinsStateSpace *stateSpace_;

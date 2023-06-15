@@ -109,7 +109,7 @@ public:
 
     // Returns whether the given state's position overlaps the
     // circular obstacle
-    bool isValid(const ob::State *state) const override
+    bool isValid(const ob::State *) const override
     {
         // return this->clearance(state) > 0.0;
         return true;

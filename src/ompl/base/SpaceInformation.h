@@ -429,6 +429,12 @@ namespace ompl
             /** \brief Return true if setup was called */
             bool isSetup() const;
 
+            /** \brief Check if the trajectory so far (start to \e s1 to \e s2) is valid, using the MotionValidator.*/
+            virtual bool checkTrajectorySoFar(const State *, const State *) const
+            {
+                throw ompl::Exception("SpaceInformation::checkTrajectorySoFar", "not implemented");
+            }
+
         protected:
             /** \brief Set default motion validator for the state space */
             void setDefaultMotionValidator();

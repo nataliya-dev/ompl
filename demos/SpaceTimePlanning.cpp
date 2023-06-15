@@ -101,6 +101,10 @@ public:
         throw ompl::Exception("SpaceTimeMotionValidator::checkMotion", "not implemented");
     }
 
+    bool checkTrajectorySoFar(const ob::State *, const ob::State *) const override {
+        throw ompl::Exception("SpaceTimeMotionValidator::checkTrajectorySoFar", "not implemented");
+    }
+
 private:
     double vMax_; // maximum velocity
     ob::StateSpace *stateSpace_; // the animation state space for distance calculation

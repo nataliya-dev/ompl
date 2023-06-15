@@ -111,7 +111,7 @@ ompl::base::PlannerStatus ompl::geometric::SRRT::solve(const base::PlannerTermin
             dstate = xstate;
         }
 
-        if (si_->checkMotion(nmotion->state, dstate))
+        if (si_->checkTrajectorySoFar(nmotion->state, dstate))
         {
             if (addIntermediateStates_)
             {

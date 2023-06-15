@@ -84,6 +84,9 @@ namespace ompl
              * last valid state and \a s2 is estimated using the ambient
              * metric. */
             bool checkMotion(const State *s1, const State *s2, std::pair<State *, double> &lastValid) const override;
+            bool checkTrajectorySoFar(const State *, const State *) const override {
+                throw ompl::Exception("ConstrainedStateSpace::checkTrajectorySoFar", "not implemented");
+            }
 
         protected:
             /** \brief Space in which we check motion. */
