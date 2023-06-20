@@ -38,10 +38,12 @@
 #include "ompl/util/Exception.h"
 #include <queue>
 
-#include <pybind11/pybind11.h>
+// #include <pybind11/pybind11.h>
 #include <pybind11/embed.h>
 
 namespace py = pybind11;
+py::scoped_interpreter python;
+auto trajectoryClassifier = py::module::import("trajectory_model").attr("spilled");
 
 
 void ompl::base::DiscreteMotionValidator::defaultSettings()
@@ -154,11 +156,17 @@ bool ompl::base::DiscreteMotionValidator::checkTrajectorySoFar(std::vector<base:
 {
     OMPL_INFORM("Check Trajectory So Far");
 
+
+    auto resultobj = trajectoryClassifier(1);
+    bool result = resultobj.cast<bool>();
+    std::cout<<"Result is:: "<<result<<std::endl;
+
     std::vector<std::vector<double>> trajectory_in_cartesian;
     for (int i=0; i<trajectory_so_far.size(); i++){
         base::State *state = trajectory_so_far[i];
         std::vector<double> joint_values;
         si_->getStateSpace()->copyToReals(joint_values, state);
+
         // should perform FK here
         // or we could do it in the python code?
         // Call python function here

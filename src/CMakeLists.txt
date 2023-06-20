@@ -1,7 +1,8 @@
 add_subdirectory(ompl)
+include_directories(${PYTHON_INCLUDE_DIRS})
 install(DIRECTORY ompl/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/ompl"
     COMPONENT ompl
-    FILES_MATCHING 
+    FILES_MATCHING
     PATTERN "*.h"
     PATTERN ".DS_Store" EXCLUDE
     PATTERN "sample_contrib" EXCLUDE

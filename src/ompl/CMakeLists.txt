@@ -93,3 +93,4 @@ if (NOT MSVC)
         "${CMAKE_CURRENT_SOURCE_DIR}/../../py-bindings/ompl/util/libompl${CMAKE_SHARED_LIBRARY_SUFFIX}"
         WORKING_DIRECTORY "${LIBRARY_OUTPUT_PATH}")
 endif (NOT MSVC)
+include_directories(${PYTHON_INCLUDE_DIRS})
