@@ -23,6 +23,7 @@ include(GNUInstallDirs)
 include(FeatureSummary)
 include(CompilerSettings)
 include(OMPLUtils)
+include_directories(${PYTHON_INCLUDE_DIRS})
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/lib")

@@ -34,15 +34,15 @@
 
 /* Author: Ioan Sucan */
 
-// #include <kdl/chainiksolverpos_nr_jl.hpp>
-// #include <kdl/chainiksolvervel_pinv.hpp>
-// #include <kdl/frames.hpp>
-// #include <kdl/jntarray.hpp>
-// #include <kdl_parser/kdl_parser.hpp>
-
 #include "ompl/base/DiscreteMotionValidator.h"
 #include "ompl/util/Exception.h"
 #include <queue>
+
+#include <pybind11/pybind11.h>
+#include <pybind11/embed.h>
+
+namespace py = pybind11;
+
 
 void ompl::base::DiscreteMotionValidator::defaultSettings()
 {
@@ -159,6 +159,9 @@ bool ompl::base::DiscreteMotionValidator::checkTrajectorySoFar(std::vector<base:
         base::State *state = trajectory_so_far[i];
         std::vector<double> joint_values;
         si_->getStateSpace()->copyToReals(joint_values, state);
+        // should perform FK here
+        // or we could do it in the python code?
+        // Call python function here
 
         trajectory_in_cartesian.push_back(joint_values);
     }
@@ -172,7 +175,6 @@ bool ompl::base::DiscreteMotionValidator::checkTrajectorySoFar(std::vector<base:
 //    * @param urdf_path: path to urdf file
 //    * @return: end effector pose
 //    */
-
 
 //   KDL::Tree my_tree;
 //   kdl_parser::treeFromFile("/home/gilberto/npm/catkin_ws/src/panda_sim_real_interface/assets/panda.urdf", my_tree);
