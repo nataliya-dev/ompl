@@ -38,11 +38,22 @@
 #include "ompl/util/Exception.h"
 #include <queue>
 
-// #include <pybind11/pybind11.h>
-#include <pybind11/embed.h>
 
+#include <kdl/chainiksolverpos_nr_jl.hpp>
+#include <kdl/chainiksolvervel_pinv.hpp>
+#include <kdl/chainfksolverpos_recursive.hpp>
+#include <kdl/frames.hpp>
+#include <kdl/jntarray.hpp>
+#include <kdl_parser/kdl_parser.hpp>
+#include <kdl/chainiksolverpos_nr_jl.hpp>
+#include <kdl/chainiksolvervel_pinv.hpp>
+#include <kdl/frames.hpp>
+#include <kdl/jntarray.hpp>
+#include <kdl_parser/kdl_parser.hpp>
+
+#include <pybind11/embed.h>
 namespace py = pybind11;
-py::scoped_interpreter python;
+py::scoped_interpreter python{};
 auto trajectoryClassifier = py::module::import("trajectory_model").attr("spilled");
 
 
@@ -152,63 +163,67 @@ bool ompl::base::DiscreteMotionValidator::checkMotion(const State *s1, const Sta
     return result;
 }
 
+std::array<double, 7> fk(std::array<double, 7> q) {
+  /*
+   * Calculate End Effector Pose from Joint Angles using KDL
+   * @param q: joint angles
+   * @param urdf_path: path to urdf file
+   * @return: end effector pose
+   */
+
+  KDL::Tree my_tree;
+  kdl_parser::treeFromFile("/home/nataliya/panda.urdf", my_tree);
+  KDL::Chain chain;
+
+  my_tree.getChain("panda_link0", "panda_link8", chain);
+
+  KDL::JntArray jointpositions = KDL::JntArray(chain.getNrOfJoints());
+
+  for (int i = 0; i < 7; i++) {
+    jointpositions(i) = q[i];
+  }
+
+  KDL::Frame cartpos;
+
+  KDL::ChainFkSolverPos_recursive fksolver = KDL::ChainFkSolverPos_recursive(chain);
+
+  bool kinematics_status;
+  kinematics_status = fksolver.JntToCart(jointpositions, cartpos);
+
+  if (kinematics_status >= 0) {
+    std::array<double, 7> ee_pose;
+    for (int i = 0; i < 3; i++) {
+      ee_pose[i] = cartpos.p[i];
+    }
+    for (int i = 0; i < 4; i++) {
+      ee_pose[i + 3] = cartpos.M.data[i];
+    }
+    return ee_pose;
+  } else {
+    throw ompl::Exception("Could not calculate forward kinematics");
+  }
+}
+
 bool ompl::base::DiscreteMotionValidator::checkTrajectorySoFar(std::vector<base::State *> trajectory_so_far) const
 {
     OMPL_INFORM("Check Trajectory So Far");
-
-
-    auto resultobj = trajectoryClassifier(1);
-    bool result = resultobj.cast<bool>();
-    std::cout<<"Result is:: "<<result<<std::endl;
-
-    std::vector<std::vector<double>> trajectory_in_cartesian;
+    std::vector<std::array<double, 7>> trajectory_in_cartesian;
     for (int i=0; i<trajectory_so_far.size(); i++){
         base::State *state = trajectory_so_far[i];
         std::vector<double> joint_values;
         si_->getStateSpace()->copyToReals(joint_values, state);
-
-        // should perform FK here
-        // or we could do it in the python code?
-        // Call python function here
-
-        trajectory_in_cartesian.push_back(joint_values);
+        std::array<double, 7> jv;
+        std::copy_n(joint_values.begin(), 7, jv.begin());
+        std::array<double, 7> cartesian_pos = fk(jv);
+        // print cartesian pose
+        std::cout<<"Cartesian Pose: "<<cartesian_pos[0]<<", "<<cartesian_pos[1]<<", "<<cartesian_pos[2]<<", "<<cartesian_pos[3]<<", "<<cartesian_pos[4]<<", "<<cartesian_pos[5]<<", "<<cartesian_pos[6]<<std::endl;
+        trajectory_in_cartesian.push_back(cartesian_pos);
     }
+
+    auto resultobj = trajectoryClassifier(1);
+    bool result = resultobj.cast<bool>();
+    std::cout<<"Result is:: "<<result<<std::endl;
     return true;
 }
 
-// std::array<double, 7> fk(std::array<double, 7> q) {
-//   /*
-//    * Calculate End Effector Pose from Joint Angles using KDL
-//    * @param q: joint angles
-//    * @param urdf_path: path to urdf file
-//    * @return: end effector pose
-//    */
 
-//   KDL::Tree my_tree;
-//   kdl_parser::treeFromFile("/home/gilberto/npm/catkin_ws/src/panda_sim_real_interface/assets/panda.urdf", my_tree);
-//   KDL::Chain chain;
-
-//   my_tree.getChain("panda_link0", "panda_hand", chain);
-//   KDL::JntArray jointpositions = KDL::JntArray(chain.getNrOfJoints());
-//   for (int i = 0; i < 7; i++) {
-//     jointpositions(i) = q[i];
-//   }
-
-//   KDL::Frame cartpos;
-//   KDL::ChainFkSolverPos_recursive fksolver = KDL::ChainFkSolverPos_recursive(chain);
-//   bool kinematics_status;
-//   kinematics_status = fksolver.JntToCart(jointpositions, cartpos);
-
-//   if (kinematics_status >= 0) {
-//     std::array<double, 7> ee_pose;
-//     for (int i = 0; i < 3; i++) {
-//       ee_pose[i] = cartpos.p[i];
-//     }
-//     for (int i = 0; i < 4; i++) {
-//       ee_pose[i + 3] = cartpos.M.data[i];
-//     }
-//     return ee_pose;
-//   } else {
-//     throw ompl::Exception("Could not calculate forward kinematics");
-//   }
-// }
