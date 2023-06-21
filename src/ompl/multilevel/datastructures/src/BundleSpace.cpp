@@ -447,6 +447,7 @@ void BundleSpace::sampleBundle(State *xRandom)
     {
         if (getProjection()->getCoDimension() > 0)
         {
+            std::cout << "getChild()->sampleFromDatastructure(xBaseTmp_)" << std::endl;
             // Adjusted sampling function: Sampling in G0 x Fiber
             getChild()->sampleFromDatastructure(xBaseTmp_);
             getProjection()->lift(xBaseTmp_, xRandom);
