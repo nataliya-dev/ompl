@@ -179,7 +179,7 @@ namespace ompl
                 {
                     for (std::size_t i = 0; i < 7; i++)
                     {
-                        vthresh[i] = maxThresh_;
+                        vthresh[i] = minThresh_;
                         vnumfail[i] = 0.0;
                         vtemp[i] = initTemperature_;
                     }
@@ -208,7 +208,8 @@ namespace ompl
                 double temp_;
 
                 double initTemperature_ = 0.001;
-                double maxThresh_ = 0.001;
+                double maxThresh_ = 1.0;
+                double minThresh_ = 0.0;
 
                 int nFailMax_ = 5;
                 double K_ = 1.0;
@@ -275,13 +276,9 @@ namespace ompl
                 \param motionCost - cost of the motion to be evaluated
             */
 
-            bool perLinkTransitionTestWedighted(Motion *parentMotion, base::State *newState);
-            bool perLinkTransitionTest(Motion *parentMotion, base::State *newState);
             bool perBranchTransitionTest(Motion *parentMotion, double dist, const base::Cost &childCost);
-
             bool perLinkTransitionTestCart(Motion *parentMotion, base::State *newState);
-            bool perLinkTransitionTestCartWeighted(Motion *parentMotion, base::State *newState);
-
+            bool perLinkTransitionTestJnt(Motion *parentMotion, base::State *newState);
             /** \brief Use ratio to prefer frontier nodes to nonfrontier ones */
             bool minExpansionControl(double randMotionDistance);
 

@@ -328,10 +328,7 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         // slopeM_ = (costB) / (distB);
         // OMPL_INFORM("slopeM_: %f", slopeM_);
 
-        // bool is_valid = perLinkTransitionTestWedighted(nearMotion, newState);
-        // bool is_valid = perLinkTransitionTest(nearMotion, newState);
-
-        bool is_valid = perLinkTransitionTestCart(nearMotion, newState);
+        bool is_valid = perLinkTransitionTestJnt(nearMotion, newState);
 
         // bool is_valid = perBranchTransitionTest(nearMotion, randMotionDistance, childCost);
         if (!is_valid)
@@ -373,14 +370,14 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
         if (opt_->isCostBetterThan(worstCost_, motion->cost))  // motion->cost is worse than the existing worst
             worstCost_ = motion->cost;
 
-        OMPL_INFORM("+++ State added +++");
+        // OMPL_INFORM("+++ State added +++");
 
         // VI.
 
         // Check if this motion is the goal
         double distToGoal = 0.0;
         bool isSatisfied = goal->isSatisfied(motion->state, &distToGoal);
-        OMPL_INFORM("distToGoal: %f", distToGoal);
+        // OMPL_INFORM("distToGoal: %f", distToGoal);
 
         // setMinDistToGoal(distToGoal);
         // setMaxTemp(temp_);
@@ -536,90 +533,12 @@ bool ompl::geometric::ContactTRRT::perBranchTransitionTest(Motion *parentMotion,
     }
 }
 
-bool ompl::geometric::ContactTRRT::perLinkTransitionTestWedighted(Motion *parentMotion, base::State *newState)
-{
-    base::State *nearState = parentMotion->state;
-    Eigen::VectorXd vfield = vf_(nearState);
-    const double lambdaScale = vfield.norm();
-    OMPL_INFORM("lambdaScale: %f", lambdaScale);
-    if (lambdaScale < std::numeric_limits<float>::epsilon())
-    {
-        return true;
-    }
-
-    Eigen::VectorXd vnew(vfdim_);
-    Eigen::VectorXd vnear(vfdim_);
-
-    for (std::size_t i = 0; i < vfdim_; i++)
-    {
-        vnew[i] = *si_->getStateSpace()->getValueAddressAtIndex(newState, i);
-        vnear[i] = *si_->getStateSpace()->getValueAddressAtIndex(nearState, i);
-    }
-
-    Eigen::VectorXd vdiff(vnew - vnear);
-
-    Eigen::VectorXd &vtemp = parentMotion->vtemp;
-    // Eigen::VectorXd &vnumfail = parentMotion->vnumfail;
-
-    bool is_valid = true;
-    double prev_cost = 0;
-    std::size_t link_to_inc = 0;
-    double min_temp = vtemp[0];
-
-    for (std::size_t i = 0; i < vfdim_; i++)
-    {
-        Eigen::VectorXd subfield = vfield.head(i + 1);
-        Eigen::VectorXd subnew = vdiff.head(i + 1);
-        double cost = subfield.squaredNorm() - subfield.dot(subnew) - prev_cost;
-        prev_cost += std::abs(cost);
-
-        double &temp = vtemp[i];
-
-        double tranProb = exp(-1.0 * std::abs(cost) / (temp * parentMotion->K_));
-
-        OMPL_INFORM("%ld cost: %f", i, cost);
-        OMPL_INFORM("%ld prev_cost: %f", i, prev_cost);
-        OMPL_INFORM("%ld temp: %f", i, temp);
-        OMPL_INFORM("%ld tranProb: %f", i, tranProb);
-
-        if (tranProb < 0.5)
-        {
-            is_valid = false;
-            if (vtemp[i] < min_temp)
-            {
-                min_temp = vtemp[i];
-                link_to_inc = i;
-            }
-        }
-    }
-
-    if (!is_valid)
-    {
-        double &temp = vtemp[link_to_inc];
-        temp *= (1.1);
-        OMPL_INFORM("State is not valid.");
-        return false;
-    }
-    else
-    {
-        for (std::size_t i = 0; i < vfdim_; i++)
-        {
-            double &temp = vtemp[i];
-            if (temp > parentMotion->initTemperature_)
-            {
-                temp /= (1.1);
-            }
-        }
-        return true;
-    }
-}
-
-bool ompl::geometric::ContactTRRT::perLinkTransitionTestCartWeighted(Motion *parentMotion, base::State *newState)
+bool ompl::geometric::ContactTRRT::perLinkTransitionTestCart(Motion *parentMotion, base::State *newState)
 {
     base::State *nearState = parentMotion->state;
     Eigen::VectorXd vfield = vfduo_(nearState, newState);
     const double lambdaScale = vfield.norm();
-    OMPL_INFORM("lambdaScale: %f", lambdaScale);
+    // OMPL_INFORM("lambdaScale: %f", lambdaScale);
     if (lambdaScale < std::numeric_limits<float>::epsilon())
     {
         return true;
@@ -633,17 +552,14 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestCartWeighted(Motion *par
         vnear[i] = *si_->getStateSpace()->getValueAddressAtIndex(nearState, i);
         vnew[i] = *si_->getStateSpace()->getValueAddressAtIndex(newState, i);
     }
-    std::cout << "vnew: " << vnew.transpose() << std::endl;
-    std::cout << "vnear: " << vnear.transpose() << std::endl;
+    // std::cout << "vnew: " << vnew.transpose() << std::endl;
+    // std::cout << "vnear: " << vnear.transpose() << std::endl;
     std::cout << "vfield: " << vfield.transpose() << std::endl;
 
     bool is_valid = true;
     // Eigen::VectorXd &vtemp = parentMotion->vtemp;
     Eigen::VectorXd &vnumfail = parentMotion->vnumfail;
     Eigen::VectorXd &vthresh = parentMotion->vthresh;
-
-    std::size_t link_to_inc = 0;
-    double max_thresh = vthresh[0];
 
     for (std::size_t i = 0; i < vfdim_; i++)
     {
@@ -652,9 +568,9 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestCartWeighted(Motion *par
         double &numfail = vnumfail[i];
         // double &temp = vtemp[i];
 
-        OMPL_INFORM("%ld cost: %f", i, cost);
-        OMPL_INFORM("%ld thresh: %f", i, thresh);
-        OMPL_INFORM("%ld numfail: %f", i, numfail);
+        // OMPL_INFORM("%ld cost: %f", i, cost);
+        // OMPL_INFORM("%ld thresh: %f", i, thresh);
+        // OMPL_INFORM("%ld numfail: %f", i, numfail);
 
         // OMPL_INFORM("%ld temp: %f", i, temp);
         // double tranProb = exp(-1.0 * std::abs(cost) / (temp * parentMotion->K_));
@@ -663,47 +579,42 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestCartWeighted(Motion *par
         // double randProb = (double)rand() / RAND_MAX;
         // OMPL_INFORM("randProb: %f", randProb);
 
-        if (cost < thresh)
+        if (cost > thresh)
         {
-            is_valid = false;
-            if (thresh > max_thresh)
+            if (thresh < parentMotion->maxThresh_)
             {
-                max_thresh = thresh;
-                link_to_inc = i;
+                thresh += 0.0015;
             }
+            // OMPL_INFORM("thresh < parentMotion->maxThresh_: %f", thresh);
+            numfail = 0;
+            continue;
+        }
+        else
+        {
+            thresh -= 0.002;
+            numfail++;
+            is_valid = false;
+            break;
         }
     }
 
-    OMPL_INFORM("max_thresh: %f", max_thresh);
-    OMPL_INFORM("link_to_inc: %ld", link_to_inc);
-
     if (!is_valid)
     {
-        double &thresh = vthresh[link_to_inc];
-        thresh -= thresh * 0.6;
-        OMPL_INFORM("State is not valid.");
+        // OMPL_INFORM("State is not valid.");
         return false;
     }
     else
     {
-        for (std::size_t i = 0; i < vfdim_; i++)
-        {
-            double &thresh = vthresh[i];
-            if (thresh < parentMotion->maxThresh_)
-            {
-                thresh += thresh * 0.2;
-            }
-        }
         return true;
     }
 }
 
-bool ompl::geometric::ContactTRRT::perLinkTransitionTestCart(Motion *parentMotion, base::State *newState)
+bool ompl::geometric::ContactTRRT::perLinkTransitionTestJnt(Motion *parentMotion, base::State *newState)
 {
     base::State *nearState = parentMotion->state;
     Eigen::VectorXd vfield = vfduo_(nearState, newState);
     const double lambdaScale = vfield.norm();
-    OMPL_INFORM("lambdaScale: %f", lambdaScale);
+    // OMPL_INFORM("lambdaScale: %f", lambdaScale);
     if (lambdaScale < std::numeric_limits<float>::epsilon())
     {
         return true;
@@ -717,8 +628,8 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestCart(Motion *parentMotio
         vnear[i] = *si_->getStateSpace()->getValueAddressAtIndex(nearState, i);
         vnew[i] = *si_->getStateSpace()->getValueAddressAtIndex(newState, i);
     }
-    std::cout << "vnew: " << vnew.transpose() << std::endl;
-    std::cout << "vnear: " << vnear.transpose() << std::endl;
+    // std::cout << "vnew: " << vnew.transpose() << std::endl;
+    // std::cout << "vnear: " << vnear.transpose() << std::endl;
     std::cout << "vfield: " << vfield.transpose() << std::endl;
 
     bool is_valid = true;
@@ -746,120 +657,38 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestCart(Motion *parentMotio
 
         if (cost > thresh)
         {
+            // if (i == 6 && vthresh[5] < 0.05)
+            // {
+            //     is_valid = false;
+            //     numfail++;
+            //     break;
+            // }
+
             if (thresh < parentMotion->maxThresh_)
             {
-                thresh += 0.0015;
+                // OMPL_INFORM("thresh > parentMotion->maxThresh_: %f", thresh);
+                thresh += 0.05;
             }
-            OMPL_INFORM("thresh < parentMotion->maxThresh_: %f", thresh);
-            numfail = 0;
-            continue;
-        }
-        else
-        {
-            thresh -= 0.002;
+
+            is_valid = false;
             numfail++;
-            is_valid = false;
             break;
-        }
-    }
-
-    if (!is_valid)
-    {
-        OMPL_INFORM("State is not valid.");
-        return false;
-    }
-    else
-    {
-        return true;
-    }
-}
-
-bool ompl::geometric::ContactTRRT::perLinkTransitionTest(Motion *parentMotion, base::State *newState)
-{
-    base::State *nearState = parentMotion->state;
-    Eigen::VectorXd vfield = vf_(nearState);
-    const double lambdaScale = vfield.norm();
-    OMPL_INFORM("lambdaScale: %f", lambdaScale);
-    if (lambdaScale < std::numeric_limits<float>::epsilon())
-    {
-        return true;
-    }
-
-    // vfield.normalize();
-
-    Eigen::VectorXd vnew(vfdim_);
-    Eigen::VectorXd vnear(vfdim_);
-
-    for (std::size_t i = 0; i < vfdim_; i++)
-    {
-        vnew[i] = *si_->getStateSpace()->getValueAddressAtIndex(newState, i);
-        vnear[i] = *si_->getStateSpace()->getValueAddressAtIndex(nearState, i);
-    }
-
-    Eigen::VectorXd vdiff(vnew - vnear);
-
-    Eigen::VectorXd &vtemp = parentMotion->vtemp;
-    Eigen::VectorXd &vnumfail = parentMotion->vnumfail;
-
-    bool is_valid = true;
-    double prev_cost = 0;
-
-    for (std::size_t i = 0; i < vfdim_; i++)
-    {
-        Eigen::VectorXd subfield = vfield.head(i + 1);
-        Eigen::VectorXd subnew = vdiff.head(i + 1);
-        double cost = subfield.squaredNorm() - subfield.dot(subnew) - prev_cost;
-        prev_cost += std::abs(cost);
-
-        // double cost = vfield[i];
-
-        double &temp = vtemp[i];
-        double &numfail = vnumfail[i];
-
-        // OMPL_INFORM("subs size: %ld", subfield.size());
-        // OMPL_INFORM("%ld cost: %f", i, cost);
-        // OMPL_INFORM("%ld prev_cost: %f", i, prev_cost);
-        // OMPL_INFORM("%ld temp: %f", i, temp);
-        // OMPL_INFORM("%ld numfail: %f", i, numfail);
-        // OMPL_INFORM("%ld distToGoal_: %f", i, distToGoal_);
-
-        double tranProb = exp(-1.0 * std::abs(cost) / (temp * parentMotion->K_));
-        // OMPL_INFORM("tranProb: %f", tranProb);
-
-        // double randProb = (double)rand() / RAND_MAX;
-        // OMPL_INFORM("randProb: %f", randProb);
-
-        if (tranProb > 0.5)
-        {
-            if (temp > parentMotion->initTemperature_)
-            {
-                temp /= (2.0);
-            }
-            OMPL_INFORM("tranProb > randProb: %f", temp);
-            numfail = 0;
-            continue;
         }
         else
         {
-            temp *= (1.5);
-            // if (numfail > parentMotion->nFailMax_)
-            // {
-            //     OMPL_INFORM("nFail > nFailMax_: temp: %f", temp);
-            //     parentMotion->nFail_ = 0;
-            // }
-            // else
-            // {
-            //     numfail++;
-            //     OMPL_INFORM("numfail: %d", numfail);
-            // }
-            is_valid = false;
-            break;
+            if (thresh > parentMotion->minThresh_)
+            {
+                // OMPL_INFORM("thresh > parentMotion->maxThresh_: %f", thresh);
+                // thresh -= 0.00001;
+            }
+            numfail = 0;
+            continue;
         }
     }
 
     if (!is_valid)
     {
-        OMPL_INFORM("State is not valid.");
+        // OMPL_INFORM("State is not valid.");
         return false;
     }
     else
@@ -922,7 +751,7 @@ void ompl::geometric::ContactTRRT::setMaxTemp(double temp)
 
 void ompl::geometric::ContactTRRT::saveData()
 {
-    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::app);
+    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::app);
     if (file.is_open())
     {
         file << sampleNum_;
@@ -949,7 +778,7 @@ void ompl::geometric::ContactTRRT::saveData()
 
 void ompl::geometric::ContactTRRT::initDataFile()
 {
-    std::fstream file("/home/nataliya/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::trunc);
+    std::fstream file("/home/nn/action_ws/src/tacbot/scripts/contactTRRT.csv", std::ios::out | std::ios::trunc);
     if (file.is_open())
     {
         file << "sampleNumber";
