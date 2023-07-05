@@ -51,10 +51,11 @@
 #include <kdl/jntarray.hpp>
 #include <kdl_parser/kdl_parser.hpp>
 
-#include <pybind11/embed.h>
-namespace py = pybind11;
-py::scoped_interpreter python{};
-auto trajectoryClassifier = py::module::import("trajectory_model").attr("spilled");
+// #include <pybind11/embed.h>
+// namespace py = pybind11;
+// py::scoped_interpreter python{};
+// auto trajectoryClassifier = py::module::import("trajectory_model").attr("spilled");
+
 
 
 void ompl::base::DiscreteMotionValidator::defaultSettings()
@@ -172,7 +173,7 @@ std::array<double, 7> fk(std::array<double, 7> q) {
    */
 
   KDL::Tree my_tree;
-  kdl_parser::treeFromFile("/home/nataliya/panda.urdf", my_tree);
+  kdl_parser::treeFromFile("/home/ava/npm/panda.urdf", my_tree);
   KDL::Chain chain;
 
   my_tree.getChain("panda_link0", "panda_link8", chain);
@@ -220,9 +221,9 @@ bool ompl::base::DiscreteMotionValidator::checkTrajectorySoFar(std::vector<base:
         trajectory_in_cartesian.push_back(cartesian_pos);
     }
 
-    auto resultobj = trajectoryClassifier(1);
-    bool result = resultobj.cast<bool>();
-    std::cout<<"Result is:: "<<result<<std::endl;
+    // auto resultobj = trajectoryClassifier(1);
+    // bool result = resultobj.cast<bool>();
+    // std::cout<<"Result is:: "<<result<<std::endl;
     return true;
 }
 
