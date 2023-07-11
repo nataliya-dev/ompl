@@ -52,10 +52,12 @@
 #include <kdl_parser/kdl_parser.hpp>
 
 #include <pybind11/embed.h>
+#include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
+
 namespace py = pybind11;
 py::scoped_interpreter python{};
 auto trajectoryClassifier = py::module::import("trajectory_model").attr("spilled");
-
 
 
 void ompl::base::DiscreteMotionValidator::defaultSettings()
@@ -207,33 +209,46 @@ std::array<double, 7> fk(std::array<double, 7> q) {
 
 bool ompl::base::DiscreteMotionValidator::checkTrajectorySoFar(std::vector<base::State *> trajectory_so_far) const
 {
+    
     OMPL_INFORM("Check Trajectory So Far");
-    std::vector<std::array<double, 7>> trajectory_in_cartesian;
-    std::vector<std::array<double, 7>> trajectory_in_joint_space;
+
+    if (trajectory_so_far.size() <= 1) {
+        return true; // Or possibly chheck the angles
+    }
+
+    std::list<Eigen::VectorXd> points;
     for (int i=0; i<trajectory_so_far.size(); i++){
         base::State *state = trajectory_so_far[i];
         std::vector<double> joint_values;
         si_->getStateSpace()->copyToReals(joint_values, state);
         std::array<double, 7> jv;
         std::copy_n(joint_values.begin(), 7, jv.begin());
-        std::array<double, 7> cartesian_pos = fk(jv);
-
-        trajectory_in_cartesian.push_back(cartesian_pos);
-        trajectory_in_joint_space.push_back(jv);
+        Eigen::VectorXd new_point(7);
+        new_point << jv[0], jv[1], jv[2], jv[3], jv[4] ,jv[5] ,jv[6];
+        points.push_back(new_point);
     }
 
+    double resample_dt_ = 0.001;
+    double path_tolerance = 0.05;
+    Eigen::VectorXd max_velocity(7);
+    Eigen::VectorXd max_acceleration(7);
+    max_velocity << 1.0875, 1.0875, 1.0875, 1.0875, 1.305, 1.305, 1.305;
+    max_acceleration << 1.875, 0.9375, 1.25, 1.5625, 1.875, 2.5, 2.5; // TODO clean
+    ompl::trajectory_processing::Trajectory parameterized(ompl::trajectory_processing::Path(points, path_tolerance), max_velocity, max_acceleration, 0.001);
+    size_t sample_count = std::ceil(parameterized.getDuration() / resample_dt_);
 
-    // Eigen::VectorXd max_velocity(7);
-    // Eigen::VectorXd max_acceleration(7);
-    // std::list<Eigen::VectorXd> points;
-    
-    // ompl::trajectory_processing::Trajectory parameterized(ompl::trajectory_processing::Path(points, 0.02), max_velocity, max_acceleration, 0.001);
-
-
+    std::vector<std::array<double, 7>> trajectory_in_cartesian;
+    for (size_t sample = 0; sample <= sample_count; ++sample)
+    {
+        double t = std::min(parameterized.getDuration(), sample * resample_dt_);
+        Eigen::VectorXd position = parameterized.getPosition(t);
+        std::array<double, 7> jv = {position[0], position[1], position[2], position[3], position[4], position[5], position[6]};
+        std::array<double, 7> cartesian_pos = fk(jv);
+        trajectory_in_cartesian.push_back(cartesian_pos);
+    }
     py::list py_traj_cartesian = py::cast(trajectory_in_cartesian);
-    py::list py_traj_joint_space = py::cast(trajectory_in_joint_space);
-    auto resultobj = trajectoryClassifier(py_traj_cartesian, py_traj_joint_space);
+    auto resultobj = trajectoryClassifier(py_traj_cartesian);
     double result = resultobj.cast<double>();
-    std::cout<<"Result is:: "<<result<<std::endl;
-    return true;
+    std::cout<<"Probability of spilling is: "<<result<<std::endl;
+    return result >= 0.5;
 }
