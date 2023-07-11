@@ -51,10 +51,10 @@
 #include <kdl/jntarray.hpp>
 #include <kdl_parser/kdl_parser.hpp>
 
-// #include <pybind11/embed.h>
-// namespace py = pybind11;
-// py::scoped_interpreter python{};
-// auto trajectoryClassifier = py::module::import("trajectory_model").attr("spilled");
+#include <pybind11/embed.h>
+namespace py = pybind11;
+py::scoped_interpreter python{};
+auto trajectoryClassifier = py::module::import("trajectory_model").attr("spilled");
 
 
 
@@ -209,6 +209,7 @@ bool ompl::base::DiscreteMotionValidator::checkTrajectorySoFar(std::vector<base:
 {
     OMPL_INFORM("Check Trajectory So Far");
     std::vector<std::array<double, 7>> trajectory_in_cartesian;
+    std::vector<std::array<double, 7>> trajectory_in_joint_space;
     for (int i=0; i<trajectory_so_far.size(); i++){
         base::State *state = trajectory_so_far[i];
         std::vector<double> joint_values;
@@ -216,15 +217,23 @@ bool ompl::base::DiscreteMotionValidator::checkTrajectorySoFar(std::vector<base:
         std::array<double, 7> jv;
         std::copy_n(joint_values.begin(), 7, jv.begin());
         std::array<double, 7> cartesian_pos = fk(jv);
-        // print cartesian pose
-        std::cout<<"Cartesian Pose: "<<cartesian_pos[0]<<", "<<cartesian_pos[1]<<", "<<cartesian_pos[2]<<", "<<cartesian_pos[3]<<", "<<cartesian_pos[4]<<", "<<cartesian_pos[5]<<", "<<cartesian_pos[6]<<std::endl;
+
         trajectory_in_cartesian.push_back(cartesian_pos);
+        trajectory_in_joint_space.push_back(jv);
     }
 
-    // auto resultobj = trajectoryClassifier(1);
-    // bool result = resultobj.cast<bool>();
-    // std::cout<<"Result is:: "<<result<<std::endl;
+
+    // Eigen::VectorXd max_velocity(7);
+    // Eigen::VectorXd max_acceleration(7);
+    // std::list<Eigen::VectorXd> points;
+    
+    // ompl::trajectory_processing::Trajectory parameterized(ompl::trajectory_processing::Path(points, 0.02), max_velocity, max_acceleration, 0.001);
+
+
+    py::list py_traj_cartesian = py::cast(trajectory_in_cartesian);
+    py::list py_traj_joint_space = py::cast(trajectory_in_joint_space);
+    auto resultobj = trajectoryClassifier(py_traj_cartesian, py_traj_joint_space);
+    double result = resultobj.cast<double>();
+    std::cout<<"Result is:: "<<result<<std::endl;
     return true;
 }
-
-

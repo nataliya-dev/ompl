@@ -138,10 +138,10 @@ MAIN_LOOP:
 
                     trajectory_so_far.push_back(states[i]);
 
-                    // if (!si_->checkTrajectorySoFar(trajectory_so_far))
-                    // {
-                    //     goto MAIN_LOOP;
-                    // }
+                    if (!si_->checkTrajectorySoFar(trajectory_so_far))
+                    {
+                        goto MAIN_LOOP;
+                    }
                 }
 
                 for (std::size_t i = 1; i < states.size(); ++i)
@@ -160,10 +160,10 @@ MAIN_LOOP:
                 // si_->getStateSpace()->printSettings(std::cout);
 
                 trajectory_so_far.push_back(dstate);
-                // if (!si_->checkTrajectorySoFar(trajectory_so_far))
-                // {
-                //     goto MAIN_LOOP;
-                // }
+                if (!si_->checkTrajectorySoFar(trajectory_so_far))
+                {
+                    goto MAIN_LOOP;
+                }
 
                 auto *motion = new Motion(si_);
                 si_->copyState(motion->state, dstate);

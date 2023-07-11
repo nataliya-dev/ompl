@@ -39,6 +39,7 @@
 
 #include "ompl/base/MotionValidator.h"
 #include "ompl/base/SpaceInformation.h"
+#include "ompl/base/TimeOptimalTrajectoryParametarization.h"
 
 namespace ompl
 {
