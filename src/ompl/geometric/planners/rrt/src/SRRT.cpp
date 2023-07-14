@@ -91,12 +91,14 @@ ompl::base::PlannerStatus ompl::geometric::SRRT::solve(const base::PlannerTermin
     base::State *rstate = rmotion->state;
     base::State *xstate = si_->allocState();
 
+    goalBias_ = 0.2;
 MAIN_LOOP:
     while (!ptc)
     {
         /* sample random state (with goal biasing) */
-        if ((goal_s != nullptr) && rng_.uniform01() < goalBias_ && goal_s->canSample())
+        if ((goal_s != nullptr) && rng_.uniform01() < goalBias_ && goal_s->canSample()){
             goal_s->sampleGoal(rstate);
+        }
         else
             sampler_->sampleUniform(rstate);
 
@@ -133,8 +135,6 @@ MAIN_LOOP:
 
                 for (std::size_t i = 1; i < states.size(); ++i)
                 {
-                    // std::cout << "111 Printing State: " << std::endl;
-                    // si_->getStateSpace()->printState(states[i], std::cout);
 
                     trajectory_so_far.push_back(states[i]);
 
@@ -155,23 +155,20 @@ MAIN_LOOP:
             }
             else
             {
-                // std::cout << "222 Printing State: " << std::endl;
-                // si_->getStateSpace()->printState(dstate, std::cout);
-                // si_->getStateSpace()->printSettings(std::cout);
 
                 trajectory_so_far.push_back(dstate);
+
                 if (!si_->checkTrajectorySoFar(trajectory_so_far))
                 {
                     goto MAIN_LOOP;
                 }
-
+                OMPL_INFORM("Added a new state!");
                 auto *motion = new Motion(si_);
                 si_->copyState(motion->state, dstate);
                 motion->parent = nmotion;
                 nn_->add(motion);
                 nmotion = motion;
             }
-
             double dist = 0.0;
             bool sat = goal->isSatisfied(nmotion->state, &dist);
             if (sat)
@@ -215,6 +212,8 @@ MAIN_LOOP:
         pdef_->addSolutionPath(path, approximate, approxdif, getName());
         solved = true;
     }
+    std::cout<<"Solved: "<<solved<<", Approximate: "<<approximate<<std::endl;
+    approximate = false;
 
     si_->freeState(xstate);
     if (rmotion->state != nullptr)
