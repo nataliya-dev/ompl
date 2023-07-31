@@ -2,6 +2,28 @@
 #include <limits>
 #include "ompl/base/goals/GoalSampleableRegion.h"
 #include "ompl/tools/config/SelfConfig.h"
+#include <array> // Add this include directive
+
+
+#include <kdl/chainiksolverpos_nr_jl.hpp>
+#include <kdl/chainiksolvervel_pinv.hpp>
+#include <kdl/chainfksolverpos_recursive.hpp>
+#include <kdl/frames.hpp>
+#include <kdl/jntarray.hpp>
+#include <kdl_parser/kdl_parser.hpp>
+#include <kdl/chainiksolverpos_nr_jl.hpp>
+#include <kdl/chainiksolvervel_pinv.hpp>
+#include <kdl/frames.hpp>
+#include <kdl/jntarray.hpp>
+#include <kdl_parser/kdl_parser.hpp>
+
+#include <pybind11/embed.h>
+#include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
+
+namespace py = pybind11;
+py::scoped_interpreter python{};
+auto sampleWaypoint = py::module::import("trajectory_model").attr("sample_point");
 
 ompl::geometric::SRRT::SRRT(const base::SpaceInformationPtr &si, bool addIntermediateStates)
   : base::Planner(si, addIntermediateStates ? "SRRTintermediate" : "SRRT")
@@ -59,6 +81,78 @@ void ompl::geometric::SRRT::freeMemory()
     }
 }
 
+
+std::array<double, 7> fk(std::array<double, 7> q) {
+  /*
+   * Calculate End Effector Pose from Joint Angles using KDL
+   * @param q: joint angles
+   * @param urdf_path: path to urdf file
+   * @return: end effector pose
+   */
+
+  KDL::Tree my_tree;
+  kdl_parser::treeFromFile("/home/ava/npm/panda.urdf", my_tree);
+  KDL::Chain chain;
+
+  my_tree.getChain("panda_link0", "panda_link8", chain);
+
+  KDL::JntArray jointpositions = KDL::JntArray(chain.getNrOfJoints());
+
+  for (int i = 0; i < 7; i++) {
+    jointpositions(i) = q[i];
+  }
+
+  KDL::Frame cartpos;
+
+  KDL::ChainFkSolverPos_recursive fksolver = KDL::ChainFkSolverPos_recursive(chain);
+
+  bool kinematics_status;
+  kinematics_status = fksolver.JntToCart(jointpositions, cartpos);
+
+  if (kinematics_status >= 0) {
+    std::array<double, 7> ee_pose;
+    for (int i = 0; i < 3; i++) {
+      ee_pose[i] = cartpos.p[i];
+    }
+    for (int i = 0; i < 4; i++) {
+      ee_pose[i + 3] = cartpos.M.data[i];
+    }
+    return ee_pose;
+  } else {
+    throw ompl::Exception("Could not calculate forward kinematics");
+  }
+}
+
+
+// std::vector<std::array<double, 7>> getTrajectoryInCartesian(std::vector<base::State *> t) {
+
+// //     std::list<Eigen::VectorXd> points;
+// //     for (int i=0; i<trajectory_so_far.size(); i++){
+// //         base::State *state = trajectory_so_far[i];
+// //         std::vector<double> joint_values;
+// //         si_->getStateSpace()->copyToReals(joint_values, state);
+// //         std::array<double, 7> jv;
+// //         std::copy_n(joint_values.begin(), 7, jv.begin());
+// //         Eigen::VectorXd new_point(7);
+// //         new_point << jv[0], jv[1], jv[2], jv[3], jv[4] ,jv[5] ,jv[6];
+// //         points.push_back(new_point);
+// //     }
+//     std::vector<std::array<double, 7>> trajectory_in_cartesian;
+// //     for (size_t sample = 0; sample <= sample_count; ++sample)
+// //     {
+// //         double t = std::min(parameterized.getDuration(), sample * resample_dt_);
+// //         Eigen::VectorXd position = parameterized.getPosition(t);
+// //         std::array<double, 7> jv = {position[0], position[1], position[2], position[3], position[4], position[5], position[6]};
+// //         std::array<double, 7> cartesian_pos = fk(jv);
+// //         trajectory_in_cartesian.push_back(cartesian_pos);
+// //     }
+
+//     return trajectory_in_cartesian;
+// }
+
+
+
+
 ompl::base::PlannerStatus ompl::geometric::SRRT::solve(const base::PlannerTerminationCondition &ptc)
 {
     OMPL_INFORM("Solving with SRRT!");
@@ -90,6 +184,7 @@ ompl::base::PlannerStatus ompl::geometric::SRRT::solve(const base::PlannerTermin
     auto *rmotion = new Motion(si_);
     base::State *rstate = rmotion->state;
     base::State *xstate = si_->allocState();
+    std::vector<base::State *> trajectory_so_far;
 
     goalBias_ = 0.2;
 MAIN_LOOP:
@@ -99,8 +194,36 @@ MAIN_LOOP:
         if ((goal_s != nullptr) && rng_.uniform01() < goalBias_ && goal_s->canSample()){
             goal_s->sampleGoal(rstate);
         }
-        else
-            sampler_->sampleUniform(rstate);
+        else{
+            // sampler_->sampleUniform(rstate);
+            std::vector<std::array<double, 7>> trajectory_in_cartesian;
+            std::list<Eigen::VectorXd> points;
+            for (int i=0; i<trajectory_so_far.size(); i++){
+                base::State *state = trajectory_so_far[i];
+                std::vector<double> joint_values;
+                si_->getStateSpace()->copyToReals(joint_values, state);
+                std::array<double, 7> jv;
+                std::copy_n(joint_values.begin(), 7, jv.begin());
+                Eigen::VectorXd new_point(7);
+                new_point << jv[0], jv[1], jv[2], jv[3], jv[4] ,jv[5] ,jv[6];
+                points.push_back(new_point);
+
+                std::array<double, 7> cartesian_pos = fk(jv);
+                trajectory_in_cartesian.push_back(cartesian_pos);
+            }
+            
+
+            // std::vector<std::array<double, 7>> trajectory_in_cartesian = getTrajectoryInCartesian(trajectory_so_far);
+            py::list py_traj_cartesian = py::cast(trajectory_in_cartesian);
+
+            auto resultobj = sampleWaypoint(py_traj_cartesian);
+            std::vector<double> waypoint_cartesian = resultobj.cast<std::vector<double>>();
+            si_->getStateSpace()->copyFromReals(rstate, waypoint_cartesian);
+
+            std::vector<double> joint_values;
+            si_->getStateSpace()->copyToReals(joint_values, rstate);
+            std::cout<<"Joint values: "<<joint_values[0]<<", "<<joint_values[1]<<", "<<joint_values[2]<<", "<<joint_values[3]<<", "<<joint_values[4]<<", "<<joint_values[5]<<", "<<joint_values[6]<<std::endl;
+        }
 
         /* find closest state in the tree */
         Motion *nmotion = nn_->nearest(rmotion);
@@ -116,7 +239,7 @@ MAIN_LOOP:
 
         if (si_->checkMotion(nmotion->state, dstate))
         {
-            std::vector<base::State *> trajectory_so_far;
+            // std::vector<base::State *> trajectory_so_far;
             Motion *last_motion = nmotion;
             while (last_motion != nullptr)
             {
@@ -138,10 +261,10 @@ MAIN_LOOP:
 
                     trajectory_so_far.push_back(states[i]);
 
-                    if (!si_->checkTrajectorySoFar(trajectory_so_far))
-                    {
-                        goto MAIN_LOOP;
-                    }
+                //     if (!si_->checkTrajectorySoFar(trajectory_so_far))
+                //     {
+                //         goto MAIN_LOOP;
+                //     }
                 }
 
                 for (std::size_t i = 1; i < states.size(); ++i)
@@ -158,10 +281,10 @@ MAIN_LOOP:
 
                 trajectory_so_far.push_back(dstate);
 
-                if (!si_->checkTrajectorySoFar(trajectory_so_far))
-                {
-                    goto MAIN_LOOP;
-                }
+                // if (!si_->checkTrajectorySoFar(trajectory_so_far))
+                // {
+                //     goto MAIN_LOOP;
+                // }
                 OMPL_INFORM("Added a new state!");
                 auto *motion = new Motion(si_);
                 si_->copyState(motion->state, dstate);
