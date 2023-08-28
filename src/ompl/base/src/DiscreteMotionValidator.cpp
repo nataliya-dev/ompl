@@ -156,42 +156,6 @@ bool ompl::base::DiscreteMotionValidator::checkMotion(const State *s1, const Sta
 
 bool ompl::base::DiscreteMotionValidator::checkMotion(const State *s1, const State *s2) const
 {
-    
-    // std::array<double, 4> quaternion = {cartesian_pos[3], cartesian_pos[4], cartesian_pos[5], cartesian_pos[6]};
-    // py::list quat_py = py::cast(quaternion);
-    // auto sampled_point = sampleWaypoint(1);
-    // std::vector<double> waypoint_cartesian = resultobj.cast<std::vector<double>>();
-    // // print waypoint_cartesian 
-    // std::cout << "waypoint_cartesian: " << waypoint_cartesian << std::endl;
-
-
-
-    
-    
-    // a, b, c, w = {0.725851,-0.687294,-0.0277177,-0.687799}
-    // euler = [ x: -116.8784625, y: 37.9156883, z: 63.044746 ]
-
-    // std::vector<double> joint_values;
-    // si_->getStateSpace()->copyToReals(joint_values, s2);
-    // std::array<double, 7> jv;
-    // std::copy_n(joint_values.begin(), 7, jv.begin());
-    // std::array<double, 7> cartesian_pos = fk(jv);
-
-    // std::array<double, 4> quaternion = {cartesian_pos[3], cartesian_pos[4], cartesian_pos[5], cartesian_pos[6]};
-    // py::list quat_py = py::cast(quaternion);
-    // auto resultobj = quatToEuler(quat_py);
-    // std::vector<double> euler_angles = resultobj.cast<std::vector<double>>();
-
-    // std::array<double, 3> stable_angles = {-118.682, 42.0002, -61.2353};
-    // // the absolute value of the difference between the current and stable angles 
-    // // should be less than 5 degrees
-    // for (int i = 0; i < 3; i++) {
-    //     if (abs(euler_angles[i] - stable_angles[i]) > 45) {
-    //         // std::cout<<"Invalid euler angles"<<std::endl;
-    //         return false;
-    //     }
-    // }
-
 
 
     /* assume motion starts in a valid configuration so s1 is valid */
