@@ -14,6 +14,8 @@
 #include "ompl/util/GeometricEquations.h"
 
 #include <array>
+#include <cstdlib>
+#include <ctime>
 
 #include <kdl/chainiksolverpos_nr_jl.hpp>
 #include <kdl/chainiksolvervel_pinv.hpp>
@@ -35,7 +37,7 @@
 
 namespace py = pybind11;
 py::scoped_interpreter python{};
-auto sampleWaypoint = py::module::import("trajectory_model").attr("sample_point");
+auto sampleWaypoint = py::module::import("trajectory_model").attr("sample_state");
 
 
 ompl::geometric::SRRT::SRRT(const base::SpaceInformationPtr &si)
@@ -249,7 +251,7 @@ ompl::base::PlannerStatus ompl::geometric::SRRT::solve(const base::PlannerTermin
         {
             // Attempt to generate a sample, if we fail (e.g., too many rejection attempts), skip the remainder of this
             // loop and return to try again
-            if (!sampleUniform(rstate, rmotion))
+            if (!sampleUniform(rstate))
                 continue;
         }
 
@@ -1157,13 +1159,26 @@ std::array<double, 7> fk(std::array<double, 7> q) {
 }
 
 
-std::vector<std::array<double, 7>> ompl::geometric::SRRT::getTrajectoryInCartesian(ompl::geometric::SRRT::Motion *rmotion){
+std::vector<std::array<double, 7>> ompl::geometric::SRRT::getTrajectoryInCartesian(){
+    std::vector<Motion *> leaf_motions;
+    std::vector<Motion *> motions;
+    nn_->list(motions);
+
+    for (auto &motion : motions){
+        if (motion->children.size() == 0){
+            leaf_motions.push_back(motion);
+        }
+    }
+
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    size_t randomIndex = std::rand() % leaf_motions.size();
+    Motion *selected_motion = leaf_motions[randomIndex];
+
     std::vector<std::array<double, 7>> trajectory_in_cartesian;
-    auto *motion = rmotion;
-    while (motion != nullptr){
-        base::State *state = motion->state;
-        motion = motion->parent;
-      
+    while (selected_motion != nullptr){
+        base::State *state = selected_motion->state;
+        selected_motion = selected_motion->parent;
+        
         std::vector<double> joint_values;
         si_->getStateSpace()->copyToReals(joint_values, state);
 
@@ -1178,7 +1193,7 @@ std::vector<std::array<double, 7>> ompl::geometric::SRRT::getTrajectoryInCartesi
 }
 
 
-bool ompl::geometric::SRRT::sampleUniform(base::State *statePtr, ompl::geometric::SRRT::Motion *rmotion)
+bool ompl::geometric::SRRT::sampleUniform(base::State *statePtr)
 {
     // Use the appropriate sampler
     if (useInformedSampling_ || useRejectionSampling_)
@@ -1194,7 +1209,7 @@ bool ompl::geometric::SRRT::sampleUniform(base::State *statePtr, ompl::geometric
     {
         // sampler_->sampleUniform(statePtr);
 
-        std::vector<std::array<double, 7>>trajectory_in_cartesian = getTrajectoryInCartesian(rmotion);
+        std::vector<std::array<double, 7>>trajectory_in_cartesian = getTrajectoryInCartesian();
         py::list py_traj_cartesian = py::cast(trajectory_in_cartesian);
         
         auto resultobj = sampleWaypoint(py_traj_cartesian); // Sample from model
