@@ -1,39 +1,3 @@
-/*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2011, Rice University
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Rice University nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
-
-/* Authors: Alejandro Perez, Sertac Karaman, Ryan Luna, Luis G. Torres, Ioan Sucan, Javier V Gomez, Jonathan Gammell */
-
 #include "ompl/geometric/planners/rrt/SRRT.h"
 #include <algorithm>
 #include <boost/math/constants/constants.hpp>
@@ -48,6 +12,31 @@
 #include "ompl/base/samplers/informed/OrderedInfSampler.h"
 #include "ompl/tools/config/SelfConfig.h"
 #include "ompl/util/GeometricEquations.h"
+
+#include <array>
+
+#include <kdl/chainiksolverpos_nr_jl.hpp>
+#include <kdl/chainiksolvervel_pinv.hpp>
+#include <kdl/chainfksolverpos_recursive.hpp>
+#include <kdl/frames.hpp>
+#include <kdl/jntarray.hpp>
+#include <kdl_parser/kdl_parser.hpp>
+#include <kdl/chainiksolverpos_nr_jl.hpp>
+#include <kdl/chainiksolvervel_pinv.hpp>
+#include <kdl/frames.hpp>
+#include <kdl/jntarray.hpp>
+#include <kdl_parser/kdl_parser.hpp>
+
+#include <pybind11/embed.h>
+#include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
+
+
+
+namespace py = pybind11;
+py::scoped_interpreter python{};
+auto sampleWaypoint = py::module::import("trajectory_model").attr("sample_point");
+
 
 ompl::geometric::SRRT::SRRT(const base::SpaceInformationPtr &si)
   : base::Planner(si, "SRRT")
@@ -217,9 +206,9 @@ ompl::base::PlannerStatus ompl::geometric::SRRT::solve(const base::PlannerTermin
     auto *rmotion = new Motion(si_);
     base::State *rstate = rmotion->state;
     base::State *xstate = si_->allocState();
+    // std::vector<base::State *> trajectory_so_far;
 
     std::vector<Motion *> nbh;
-
     std::vector<base::Cost> costs;
     std::vector<base::Cost> incCosts;
     std::vector<std::size_t> sortedCostIndices;
@@ -244,6 +233,8 @@ ompl::base::PlannerStatus ompl::geometric::SRRT::solve(const base::PlannerTermin
     // our functor for sorting nearest neighbors
     CostIndexCompare compareFn(costs, *opt_);
 
+
+
     while (ptc == false)
     {
         iterations_++;
@@ -258,7 +249,7 @@ ompl::base::PlannerStatus ompl::geometric::SRRT::solve(const base::PlannerTermin
         {
             // Attempt to generate a sample, if we fail (e.g., too many rejection attempts), skip the remainder of this
             // loop and return to try again
-            if (!sampleUniform(rstate))
+            if (!sampleUniform(rstate, rmotion))
                 continue;
         }
 
@@ -1123,7 +1114,71 @@ void ompl::geometric::SRRT::allocSampler()
     // No else
 }
 
-bool ompl::geometric::SRRT::sampleUniform(base::State *statePtr)
+
+std::array<double, 7> fk(std::array<double, 7> q) {
+  /*
+   * Calculate End Effector Pose from Joint Angles using KDL
+   * @param q: joint angles
+   * @param urdf_path: path to urdf file
+   * @return: end effector pose
+   */
+
+  KDL::Tree my_tree;
+  kdl_parser::treeFromFile("/home/ava/projects/action_ws/panda.urdf", my_tree);
+  KDL::Chain chain;
+
+  my_tree.getChain("panda_link0", "panda_link8", chain);
+
+  KDL::JntArray jointpositions = KDL::JntArray(chain.getNrOfJoints());
+
+  for (int i = 0; i < 7; i++) {
+    jointpositions(i) = q[i];
+  }
+
+  KDL::Frame cartpos;
+
+  KDL::ChainFkSolverPos_recursive fksolver = KDL::ChainFkSolverPos_recursive(chain);
+
+  bool kinematics_status;
+  kinematics_status = fksolver.JntToCart(jointpositions, cartpos);
+
+  if (kinematics_status >= 0) {
+    std::array<double, 7> ee_pose;
+    for (int i = 0; i < 3; i++) {
+      ee_pose[i] = cartpos.p[i];
+    }
+    for (int i = 0; i < 4; i++) {
+      ee_pose[i + 3] = cartpos.M.data[i];
+    }
+    return ee_pose;
+  } else {
+    throw ompl::Exception("Could not calculate forward kinematics");
+  }
+}
+
+
+std::vector<std::array<double, 7>> ompl::geometric::SRRT::getTrajectoryInCartesian(ompl::geometric::SRRT::Motion *rmotion){
+    std::vector<std::array<double, 7>> trajectory_in_cartesian;
+    auto *motion = rmotion;
+    while (motion != nullptr){
+        base::State *state = motion->state;
+        motion = motion->parent;
+      
+        std::vector<double> joint_values;
+        si_->getStateSpace()->copyToReals(joint_values, state);
+
+        std::array<double, 7> jv;
+        std::copy_n(joint_values.begin(), 7, jv.begin());
+
+        std::array<double, 7> cartesian_pos = fk(jv);
+        trajectory_in_cartesian.push_back(cartesian_pos);
+    }
+
+    return trajectory_in_cartesian;
+}
+
+
+bool ompl::geometric::SRRT::sampleUniform(base::State *statePtr, ompl::geometric::SRRT::Motion *rmotion)
 {
     // Use the appropriate sampler
     if (useInformedSampling_ || useRejectionSampling_)
@@ -1132,14 +1187,21 @@ bool ompl::geometric::SRRT::sampleUniform(base::State *statePtr)
         // If bestCost is changing a lot by small amounts, this could
         // be prunedCost_ to reduce the number of times the informed sampling
         // transforms are recalculated.
+
         return infSampler_->sampleUniform(statePtr, bestCost_);
     }
     else
     {
-        // Simply return a state from the regular sampler
-        sampler_->sampleUniform(statePtr);
+        // sampler_->sampleUniform(statePtr);
 
-        // Always true
+        std::vector<std::array<double, 7>>trajectory_in_cartesian = getTrajectoryInCartesian(rmotion);
+        py::list py_traj_cartesian = py::cast(trajectory_in_cartesian);
+        
+        auto resultobj = sampleWaypoint(py_traj_cartesian); // Sample from model
+
+        std::vector<double> waypoint_cartesian = resultobj.cast<std::vector<double>>();
+        si_->getStateSpace()->copyFromReals(statePtr, waypoint_cartesian);
+        
         return true;
     }
 }

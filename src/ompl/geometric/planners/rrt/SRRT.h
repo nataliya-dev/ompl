@@ -364,7 +364,10 @@ namespace ompl
             void allocSampler();
 
             /** \brief Generate a sample */
-            bool sampleUniform(base::State *statePtr);
+            bool sampleUniform(base::State *statePtr, ompl::geometric::SRRT::Motion *rmotion);
+
+            /** \brief Get trajectory in cartesian */
+            std::vector<std::array<double, 7>> getTrajectoryInCartesian(ompl::geometric::SRRT::Motion *rmotion);
 
             /** \brief Free the memory allocated by this planner */
             void freeMemory();
