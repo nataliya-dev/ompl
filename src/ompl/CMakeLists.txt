@@ -22,6 +22,12 @@ file(GLOB_RECURSE OMPL_HEADERS datastructures/*.h util/*.h base/*.h
 #
 #endif()
 
+find_package(trac_ik_lib REQUIRED)
+include_directories(${trac_ik_lib_INCLUDE_DIRS})
+
+find_package(nlopt REQUIRED)
+include_directories(${nlopt_INCLUDE_DIRS})
+
 if (OMPL_EXTENSION_MORSE)
     file(GLOB_RECURSE OMPL_MORSE_EXTENSION_SOURCE_CODE extensions/morse/*.cpp)
     file(GLOB_RECURSE OMPL_MORSE_EXTENSION_HEADERS extensions/morse/*.h)
@@ -59,7 +65,10 @@ target_link_libraries(ompl
     ${Boost_SERIALIZATION_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
-    ${CMAKE_THREAD_LIBS_INIT})
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${NLOPT_LIBRARIES}
+    ${TRAC_IK_LIBRARIES}
+    )
 
 if (OMPL_EXTENSION_ODE)
     if (NOT CMAKE_VERSION VERSION_LESS 3.13)

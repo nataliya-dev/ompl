@@ -47,6 +47,12 @@
 #include <utility>
 #include <list>
 
+#include <trac_ik/trac_ik.hpp>
+#include <trac_ik/nlopt_ik.hpp>
+#include <nlopt.hpp>
+#include <trac_ik/kdl_tl.hpp>
+
+
 namespace ompl
 {
     namespace geometric

@@ -21,12 +21,18 @@
   <build_depend>opende</build_depend>
   <build_depend>libflann-dev</build_depend>
   <build_depend>kdl_parser</build_depend>
+  <!-- <build-depend>trac_ik</build-depend>
+  <build-depend>trac_ik_lib</build-depend> -->
+
 
   <exec_depend>boost</exec_depend>
   <exec_depend>eigen</exec_depend>
   <exec_depend>opende</exec_depend>
   <exec_depend>libflann-dev</exec_depend>
   <exec_depend>kdl_parser</exec_depend>
+
+  <!-- <exec-depend>trac_ik</exec-depend>
+  <exec-depend>trac_ik_lib</exec-depend> -->
 
   <export>
     <build_type>cmake</build_type>

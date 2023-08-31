@@ -53,6 +53,29 @@ set(Boost_NO_BOOST_CMAKE ON)
 find_package(Boost 1.58 QUIET REQUIRED COMPONENTS serialization filesystem system program_options)
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
+include_directories(
+    SYSTEM PUBLIC
+${nlopt_INCLUDE_DIRS}
+${TRAC_IK_INCLUDE_DIRS}
+)
+
+find_package(catkin REQUIRED
+  COMPONENTS
+  trac_ik_lib
+#   trac_ik
+#   nlopt
+)
+
+
+find_package(trac_ik_lib REQUIRED)
+include_directories(${trac_ik_lib_INCLUDE_DIRS})
+
+find_package(nlopt REQUIRED)
+include_directories(${nlopt_INCLUDE_DIRS})
+
+
+# target_link_libraries(ompl ${catkin_LIBRARIES} ${TRAC_IK_LIBRARIES})
+
 # Add support in Boost::Python for std::shared_ptr
 # This is a hack that replaces boost::shared_ptr related code with std::shared_ptr.
 # Proper support for std::shared_ptr was added in Boost 1.63.

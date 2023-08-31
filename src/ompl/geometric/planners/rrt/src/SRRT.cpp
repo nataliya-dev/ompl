@@ -34,7 +34,6 @@
 #include <pybind11/stl_bind.h>
 
 
-
 namespace py = pybind11;
 py::scoped_interpreter python{};
 auto sampleWaypoint = py::module::import("trajectory_model").attr("sample_state");
@@ -1117,6 +1116,58 @@ void ompl::geometric::SRRT::allocSampler()
 }
 
 
+std::array<double, 7> ik(std::array<double, 7> pose){
+    KDL::Tree tree;
+    kdl_parser::treeFromFile("/home/ava/projects/action_ws/panda.urdf", tree);
+    KDL::Chain chain;
+    tree.getChain("panda_link0", "panda_link8", chain);
+    std::array<double, 7> lower_limits = {-2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973};
+    std::array<double, 7> upper_limits = {2.8973, 1.7628, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973};
+    KDL::JntArray lb, ub;
+    lb.resize(chain.getNrOfJoints());
+    ub.resize(chain.getNrOfJoints());
+    for (int i = 0; i < chain.getNrOfJoints(); i++) {
+        lb(i) = lower_limits[i];
+        ub(i) = upper_limits[i];
+    }
+
+    KDL::ChainFkSolverPos_recursive fk_solver(chain);
+    KDL::ChainIkSolverVel_pinv vik_solver(chain);
+    KDL::ChainJntToJacSolver jac_solver(chain);
+    KDL::ChainIkSolverPos_NR_JL tracik_solver(chain, lb, ub, fk_solver, vik_solver, 200, 1e-5);
+
+    KDL::Frame desired_ee_pose;
+    desired_ee_pose.p.x(pose[0]);
+    desired_ee_pose.p.y(pose[1]);
+    desired_ee_pose.p.z(pose[2]);
+    desired_ee_pose.M = KDL::Rotation::Quaternion(pose[3], pose[4], pose[5], pose[6]);
+    
+    KDL::JntArray joint_seed;
+    joint_seed.resize(chain.getNrOfJoints());
+    joint_seed(0) = -0.412894;
+    joint_seed(1) = 0.841556;
+    joint_seed(2) = -1.21653;
+    joint_seed(3) = -1.45469;
+    joint_seed(4) = 0.766197;
+    joint_seed(5) = 1.79544;
+    joint_seed(6) = -0.893028;
+
+    KDL::JntArray returned_joint_angles(7);
+    int rc = tracik_solver.CartToJnt(joint_seed, desired_ee_pose, returned_joint_angles);
+    if (rc < 0) {
+        OMPL_WARN("Failed to solve ik");
+        return {0, 0, 0, 0, 0, 0, 0};
+    }
+    std::array<double, 7> joint_angles;
+    for (int i = 0; i < 7; i++) {
+        joint_angles[i] = returned_joint_angles(i);
+    }
+
+    return joint_angles;
+}
+
+
+
 std::array<double, 7> fk(std::array<double, 7> q) {
   /*
    * Calculate End Effector Pose from Joint Angles using KDL
@@ -1128,7 +1179,6 @@ std::array<double, 7> fk(std::array<double, 7> q) {
   KDL::Tree my_tree;
   kdl_parser::treeFromFile("/home/ava/projects/action_ws/panda.urdf", my_tree);
   KDL::Chain chain;
-
   my_tree.getChain("panda_link0", "panda_link8", chain);
 
   KDL::JntArray jointpositions = KDL::JntArray(chain.getNrOfJoints());
@@ -1213,8 +1263,16 @@ bool ompl::geometric::SRRT::sampleUniform(base::State *statePtr)
         py::list py_traj_cartesian = py::cast(trajectory_in_cartesian);
         
         auto resultobj = sampleWaypoint(py_traj_cartesian); // Sample from model
-
         std::vector<double> waypoint_cartesian = resultobj.cast<std::vector<double>>();
+        std::cout<<"calling IK"<<std::endl;
+        std::array<double, 7> ik_result = ik({waypoint_cartesian[0],
+                                                waypoint_cartesian[1],
+                                                waypoint_cartesian[2],
+                                                waypoint_cartesian[3],
+                                                waypoint_cartesian[4],
+                                                waypoint_cartesian[5],
+                                                waypoint_cartesian[6]});
+        // std::cout<<"IK result: "<<ik_result[0]<<", "<<ik_result[1]<<", "<<ik_result[2]<<", "<<ik_result[3]<<", "<<ik_result[4]<<", "<<ik_result[5]<<", "<<ik_result[6]<<std::endl;
         si_->getStateSpace()->copyFromReals(statePtr, waypoint_cartesian);
         
         return true;
