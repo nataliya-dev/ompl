@@ -74,6 +74,9 @@ namespace ompl
                     si_->freeState(interp[i]);
                 }
                 si_->freeState(interp[interp.size() - 1]);
+
+                total_cost += si_->distance(s1, s2);
+
                 return ompl::base::Cost(total_cost);
             }
 

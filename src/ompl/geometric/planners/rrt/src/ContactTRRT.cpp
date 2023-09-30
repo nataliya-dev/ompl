@@ -262,8 +262,8 @@ ompl::geometric::ContactTRRT::solve(const base::PlannerTerminationCondition &pla
             num_uniform_samples++;
         }
 
-        OMPL_INFORM("num_goal_samples %u: ", num_goal_samples);
-        OMPL_INFORM("num_uniform_samples %u: ", num_uniform_samples);
+        // OMPL_INFORM("num_goal_samples %u: ", num_goal_samples);
+        // OMPL_INFORM("num_uniform_samples %u: ", num_uniform_samples);
 
         // II.
 
@@ -583,7 +583,7 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestCart(Motion *parentMotio
         {
             if (thresh < parentMotion->maxThresh_)
             {
-                thresh += 0.0015;
+                thresh += 0.004;
             }
             // OMPL_INFORM("thresh < parentMotion->maxThresh_: %f", thresh);
             numfail = 0;
@@ -644,9 +644,9 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestJnt(Motion *parentMotion
         double &numfail = vnumfail[i];
         // double &temp = vtemp[i];
 
-        OMPL_INFORM("%ld cost: %f", i, cost);
-        OMPL_INFORM("%ld thresh: %f", i, thresh);
-        OMPL_INFORM("%ld numfail: %f", i, numfail);
+        // OMPL_INFORM("%ld cost: %f", i, cost);
+        // OMPL_INFORM("%ld thresh: %f", i, thresh);
+        // OMPL_INFORM("%ld numfail: %f", i, numfail);
 
         // OMPL_INFORM("%ld temp: %f", i, temp);
         // double tranProb = exp(-1.0 * std::abs(cost) / (temp * parentMotion->K_));
@@ -667,7 +667,7 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestJnt(Motion *parentMotion
             if (thresh < parentMotion->maxThresh_)
             {
                 // OMPL_INFORM("thresh > parentMotion->maxThresh_: %f", thresh);
-                thresh += 0.05;
+                thresh += 0.0004;
             }
 
             is_valid = false;
@@ -679,7 +679,7 @@ bool ompl::geometric::ContactTRRT::perLinkTransitionTestJnt(Motion *parentMotion
             if (thresh > parentMotion->minThresh_)
             {
                 // OMPL_INFORM("thresh > parentMotion->maxThresh_: %f", thresh);
-                // thresh -= 0.00001;
+                thresh -= 0.0002;
             }
             numfail = 0;
             continue;

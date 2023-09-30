@@ -785,18 +785,23 @@ bool ompl::geometric::PathSimplifier::simplify(PathGeometric &path, const base::
             }
         }
 
-        // try a randomized step of connecting vertices
+        // // try a randomized step of connecting vertices
         // if (ptc == false || atLeastOnce)
+        // {
         //     tryMore = reduceVertices(path);
+        // }
 
-        // try to collapse close-by vertices
+        // // try to collapse close-by vertices
         // if (ptc == false || atLeastOnce)
-        //     collapseCloseVertices(path);
+        //   {
+        //      collapseCloseVertices(path);
+        //   }
 
-        // try to reduce verices some more, if there is any point in doing so
+        // // try to reduce verices some more, if there is any point in doing so
         // unsigned int times = 0;
-        // while ((ptc == false || atLeastOnce) && tryMore && ++times <= 5)
+        // while((ptc == false || atLeastOnce) && tryMore && ++times <= 5){
         //     tryMore = reduceVertices(path);
+        // }
 
         if ((ptc == false || atLeastOnce) && si_->getStateSpace()->isMetricSpace())
         {
