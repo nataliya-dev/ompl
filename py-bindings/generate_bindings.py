@@ -154,20 +154,23 @@ class ompl_base_generator_t(code_generator_t):
         code_generator_t.__init__(self, 'base', ['bindings/util'], replacement)
 
     def filter_declarations(self):
-        # force ProblemDefinition to be included, because it is used by other modules
+        # force classes to be included, because it is used by other modules
         self.ompl_ns.class_('ProblemDefinition').include()
-        # force the abstract base class Path to be included, because it is used by other modules
         self.ompl_ns.class_('Path').include()
+        self.ompl_ns.class_('PlannerSolution').include()
+
         code_generator_t.filter_declarations(self)
         # rename STL vectors of certain types
         self.std_ns.class_(
             f'map< {self.string_decl}, std::shared_ptr< ompl::base::ProjectionEvaluator > >').rename(
                 'mapStringToProjectionEvaluator')
         self.std_ns.class_('vector< ompl::base::State * >').rename('vectorState')
+
         try:
             self.std_ns.class_('vector< ompl::base::State const* >').rename('vectorConstState')
         except declaration_not_found_t:
             pass
+
         self.std_ns.class_('vector< std::shared_ptr<ompl::base::StateSpace> >').rename(
             'vectorStateSpacePtr')
         #self.std_ns.class_('vector< <ompl::base::PlannerSolution> >').rename(
@@ -177,6 +180,9 @@ class ompl_base_generator_t(code_generator_t):
         self.std_ns.class_(f'map< {self.string_decl}, ompl::base::StateSpace::SubstateLocation >').rename(
             'mapStringToSubstateLocation')
         self.std_ns.class_('vector<ompl::base::PlannerSolution>').rename('vectorPlannerSolution')
+
+        self.std_ns.class_('vector< ompl::base::ConditionalStateSampler::Motion * >').rename(
+            'vectorConditionalStateSamplerMotionPtr')
 
         pairStateDouble = self.std_ns.class_('pair<ompl::base::State *, double>')
         pairStateDouble.rename('pairStateDouble')
@@ -327,16 +333,28 @@ class ompl_base_generator_t(code_generator_t):
                 'ConstrainedStateSpace').class_('StateType'), 'double')
             # \todo: figure why commented-out code causes a problem.
             self.ompl_ns.class_('ConstraintIntersection').exclude()
+
+            signatures = ['::Eigen::Ref<const Eigen::Matrix<double, -1, 1, 0, -1, 1>, 0, Eigen::InnerStride<1> > const &',
+                          '::Eigen::Ref<const Eigen::Matrix<double, -1, 1, 0>, 0, Eigen::InnerStride<1>> const &']
+
             for cls in [self.ompl_ns.class_('Constraint')]: #,
 #                        self.ompl_ns.class_('ConstraintIntersection')]:
                 for method in ['function', 'jacobian']:
-                    cls.member_function(method, arg_types=[
-                        '::Eigen::Ref<const Eigen::Matrix<double, -1, 1, 0>, 0, Eigen::InnerStride<1>> const &',
-                        None]).add_transformation(FT.input(0))
+                    for signature in signatures:
+                        try:
+                            cls.member_function(method, arg_types=[signature, None]).add_transformation(FT.input(0))
+                        except Exception as e:
+                            pass
+
             cls = self.ompl_ns.class_('Constraint')
             for method in ['distance', 'isSatisfied']:
-                cls.member_function(method, arg_types=[
-                    '::Eigen::Ref<const Eigen::Matrix<double, -1, 1, 0>, 0, Eigen::InnerStride<1>> const &',]).add_transformation(FT.input(0))
+
+                for signature in signatures:
+                    try:
+                        cls.member_function(method, arg_types=[signature]).add_transformation(FT.input(0))
+                    except Exception as e:
+                        pass
+
         except Exception as e:
             pass
 
@@ -404,6 +422,9 @@ class ompl_base_generator_t(code_generator_t):
             'CostToGoHeuristic', 'Cost-to-go heuristic for optimizing planners')
         self.add_function_wrapper('std::string()', 'PlannerProgressProperty', \
             'Function that returns stringified value of a property while a planner is running')
+        self.add_function_wrapper('void(const ompl::base::Planner*, ' \
+            'const std::vector<const ompl::base::State*>&, const ompl::base::Cost)', \
+            'ReportIntermediateSolutionFn', 'Intermediate solution callback function')
 
         # rename SamplerSelectors
         self.ompl_ns.class_('SamplerSelector< ompl::base::StateSampler >').rename(
@@ -790,10 +811,10 @@ class ompl_geometric_generator_t(code_generator_t):
         try:
             self.ompl_ns.class_('NearestNeighbors<unsigned long>').include()
             self.ompl_ns.class_('NearestNeighbors<unsigned long>').rename('NearestNeighbors')
-            self.ompl_ns.class_('NearestNeighborsLinear<unsigned long>').rename(
-                'NearestNeighborsLinear')
+            self.ompl_ns.class_('NearestNeighborsLinear<unsigned long>').rename('NearestNeighborsLinear')
             self.ompl_ns.class_('KStrategy<unsigned long>').rename('KStrategy')
             self.ompl_ns.class_('KStarStrategy<unsigned long>').rename('KStarStrategy')
+            self.ompl_ns.class_('KBoundedStrategy<unsigned long>').rename('KBoundedStrategy')
         except declaration_not_found_t:
             self.ompl_ns.class_('NearestNeighbors<unsigned int>').include()
             self.ompl_ns.class_('NearestNeighbors<unsigned int>').rename('NearestNeighbors')
@@ -801,6 +822,7 @@ class ompl_geometric_generator_t(code_generator_t):
                 'NearestNeighborsLinear')
             self.ompl_ns.class_('KStrategy<unsigned int>').rename('KStrategy')
             self.ompl_ns.class_('KStarStrategy<unsigned int>').rename('KStarStrategy')
+            self.ompl_ns.class_('KBoundedStrategy<unsigned int>').rename('KBoundedStrategy')
 
         try:
             # Exclude some functions from BIT* that cause some Py++ compilation problems
@@ -935,31 +957,6 @@ class ompl_util_generator_t(code_generator_t):
                 'uniformProlateHyperspheroid').exclude()
         except declaration_not_found_t:
             pass
-
-class ompl_morse_generator_t(code_generator_t):
-    def __init__(self):
-        replacement = default_replacement
-        code_generator_t.__init__(self, 'morse', \
-            ['bindings/util', 'bindings/base', 'bindings/geometric', 'bindings/control'], \
-            replacement)
-    def filter_declarations(self):
-        stype = 'Morse'
-        # create a python type for each of the corresponding state type
-        state = self.ompl_ns.class_('ScopedState< ompl::base::%sStateSpace >' % stype)
-        state.rename(stype+'State')
-        state.operator('=', arg_types=['::ompl::base::State const &']).exclude()
-        # add a constructor that allows a MorseState to be constructed from a State
-        state.add_registration_code(
-            'def(bp::init<ompl::base::ScopedState<ompl::base::StateSpace> const &>(( '
-            'bp::arg("other") )))')
-        # add a constructor that allows, e.g., a State to be constructed from a MorseState
-        bstate = self.ompl_ns.class_('ScopedState< ompl::base::StateSpace >')
-        bstate.add_registration_code(
-            'def(bp::init<ompl::base::ScopedState<ompl::base::%sStateSpace> const &>(( '
-            'bp::arg("other") )))' % stype)
-        # add array access to double components of state
-        self.add_array_access(state, 'double')
-
 
 if __name__ == '__main__':
     setrecursionlimit(50000)
